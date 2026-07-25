@@ -1,0 +1,102 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+.installed.cfg
+lib/
+lib64/
+MANIFEST
+.Python
+
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# ── Testing & Coverage ─────────────────────────────────────────────────────────
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# ── Linting & Type-checking ────────────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# ── Jupyter Notebooks ─────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+# Uncomment if you want to ignore notebooks entirely:
+# *.ipynb
+
+# ── IDE & Editor ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Secrets & Environment ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+site/
+docs/_build/
+
+# ── Build artifacts ───────────────────────────────────────────────────────────
+*.log
+*.pot
+
+# ── Project-specific ──────────────────────────────────────────────────────────
+# LLM response cache (regenerate locally)
+.mutant_cache/
+
+# Exported outputs (not source, not committed)
+exports/
+regression/
+coverage_dashboard.html
+
+test.ipynb
+*.ipynb
+*.html
+
+# Scratch / one-off dev files at root level
+scratch*.py
+patch_*.py
+test_gemini*.py
+test_genai*.py
+test_list_models*.py
+test_export*.py
+
+# uv lockfile (commit or ignore depending on your policy — we commit it)
+# uv.lock

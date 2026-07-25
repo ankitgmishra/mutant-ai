@@ -1,0 +1,189 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mutant-ai"
+version = "0.7.6"
+description = "Automated red teaming and behavioral dataset engineering for LLMs, RAGs, and AI Agents"
+readme = "README-pypi.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Ankit Mishra", email = "ankitmishra.letter@gmail.com", website = "https://www.aiankit.com", linkedin = "https://www.linkedin.com/in/ankitgmishra/"},
+]
+keywords = [
+    "ai",
+    "agents",
+    "mutation-testing",
+    "llm",
+    "testing",
+    "evaluation",
+    "fuzzing",
+    "red-teaming",
+    "behavioral-testing",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5.0",
+    "rich>=13.7.0",
+    "jinja2>=3.1.0",
+    "typing-extensions>=4.9.0",
+    "httpx>=0.27.0",
+    "anyio>=4.3.0",
+    "diskcache>=5.6.0",
+    "tenacity>=8.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+
+openai = [
+    "openai>=1.30.0",
+]
+anthropic = [
+    "anthropic>=0.25.0",
+]
+gemini = [
+    "google-genai>=0.2.0",
+]
+litellm = [
+    "litellm>=1.35.0",
+]
+all = [
+    "openai>=1.30.0",
+    "anthropic>=0.25.0",
+    "litellm>=1.35.0",
+]
+datasets = [
+    "pandas>=2.0.0",
+    "datasets>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ankitgmishra/mutant-ai"
+Documentation = "https://mutant-ai.readthedocs.io"
+Repository = "https://github.com/ankitgmishra/mutant-ai"
+"Bug Tracker" = "https://github.com/ankitgmishra/mutant-ai/issues"
+
+# ─── Hatch ────────────────────────────────────────────────────────────────────
+[tool.hatch.build.targets.wheel]
+packages = ["mutant-ai"]
+
+# ─── Ruff ─────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["mutant", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long – handled by formatter
+    "B008",   # do not perform function calls in default arguments
+    "ARG",    # unused arguments (common in mocks/tests)
+    "TCH",    # strict type-checking blocks
+    "RUF001", # ambiguous characters
+    "RUF002", # ambiguous characters in docstrings
+    "F821",   # undefined name Any
+    "E402",   # module level import not at top of file
+    "E701",   # multiple statements on one line
+    "B904",   # raise from None
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mutant"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# ─── mypy ─────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ─── pytest ───────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "--cov=mutant",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=75",
+    "-v",
+]
+
+# ─── coverage ─────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["mutant"]
+branch = true
+omit = [
+    "mutant/providers/openai.py",
+    "mutant/providers/anthropic.py",
+    "mutant/providers/gemini.py",
+    "mutant/providers/ollama.py",
+    "mutant/providers/litellm.py",
+    "mutant/providers/base.py",
+    "mutant/providers/__init__.py",
+    "mutant/cache/*",
+    "mutant/datasets/io.py",
+    "mutant/reports/*",
+    "tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]
