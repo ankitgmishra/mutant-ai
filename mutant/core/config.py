@@ -15,6 +15,9 @@ class MutationConfig(BaseModel):
 
     # Stages
     quality_review: bool = Field(True, description="Enable quality review stage.")
+    selective_quality_review_rate: float = Field(
+        0.4, description="Fraction of cases to review if quality_review is enabled."
+    )
     quality_batch_size: int = Field(10, description="Cases per quality review batch.")
     deduplicate: bool = Field(True, description="Enable semantic deduplication.")
     # Generation toggles

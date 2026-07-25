@@ -17,6 +17,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mutant.models import ReflectionMemory
+
 # The target is just an async callable: message in, response out.
 TargetFn = Callable[[str], Awaitable[str]]
 
@@ -157,6 +159,10 @@ class TargetModel(BaseModel):
     evidence_log: list[Evidence] = Field(
         default_factory=list,
         description="All structured evidence collected during the session.",
+    )
+    reflection_memory: ReflectionMemory = Field(
+        default_factory=ReflectionMemory,
+        description="Compact reflection memory (Reflexion) to avoid repeated failures.",
     )
 
     @classmethod

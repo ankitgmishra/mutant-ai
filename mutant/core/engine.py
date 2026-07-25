@@ -1,12 +1,19 @@
 """
-mutant/core/engine.py — V0.4
+mutant/core/engine.py — V0.5
 ==============================
 MutationEngine orchestrates the 6-stage pipeline.
 Python coordinates; LLMs generate.
 
+V0.5 Changes:
+  - BehaviorProfile is built during analysis and cached on PipelineContext.
+  - Coverage gap detection feeds the planner with structured gap data.
+  - Selective quality review: only ~40% of cases are judged (configurable).
+  - Batch generation: dimensions generate all mutations in one prompt.
+
 Pipeline:
-  analyze_behavior → plan_mutations → generate_mutations
-  → quality_review → deduplicate → analyze_coverage
+  analyze_behavior (+ profile cache) → plan_mutations (gap-aware)
+  → generate_mutations (batched) → quality_review (selective)
+  → deduplicate → output
 """
 
 from __future__ import annotations
@@ -14,7 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger("mutant")
 
@@ -63,7 +70,7 @@ class MutationEngine:
         registry: MutationRegistry | None = None,
         cache: BaseCache | None = None,
     ) -> None:
-        self._provider = _CachedProvider(provider, cache) if cache else provider
+        self._provider: Any = _CachedProvider(provider, cache) if cache else provider
         self._registry = registry or _default_registry
 
     async def run(
@@ -217,7 +224,7 @@ class _CachedProvider:
         return response
 
     async def complete_json(self, messages, schema, **kwargs):  # type: ignore[no-untyped-def]
-        response = await self.complete(messages, **kwargs)
+        response = await self.complete(messages, **kwargs)  # type: ignore[no-untyped-call]
         return self._provider._parse_json(response.content, schema)
 
     @staticmethod
@@ -257,7 +264,7 @@ async def mutate(
         )
     else:
         # User explicitly passed a config, but we can override with common kwargs if provided
-        updates = {}
+        updates: dict[str, Any] = {}
         if count is not None:
             updates["count"] = count
         if quality_review is not None:
@@ -332,7 +339,7 @@ async def augment(
             **kwargs,
         )
     else:
-        updates = {}
+        updates: dict[str, Any] = {}
         if mutations_per_case is not None:
             updates["count"] = mutations_per_case
         if quality_review is not None:

@@ -1,4 +1,4 @@
-"""mutant/pipeline/context.py — V0.4"""
+"""mutant/pipeline/context.py — V0.5"""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from mutant.core.mutation import (
     QualityReviewResult,
 )
 from mutant.core.scenario import Scenario
+from mutant.models import BehaviorProfile, MutationCoverageState
 
 
 class PipelineConfig(BaseModel):
@@ -43,6 +44,11 @@ class PipelineContext(BaseModel):
     deduplicated_cases: list[EvaluationCase] = Field(default_factory=list)
     final_cases: list[EvaluationCase] = Field(default_factory=list)
     stage_timings: dict[str, float] = Field(default_factory=dict)
+
+    # V0.5: structured behavior profile (cached, replaces raw re-analysis)
+    behavior_profile: BehaviorProfile | None = None
+    # V0.5: running coverage state for gap detection
+    coverage_state: MutationCoverageState = Field(default_factory=MutationCoverageState)
 
     model_config = {"arbitrary_types_allowed": True}
 

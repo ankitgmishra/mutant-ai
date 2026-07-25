@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mutant-ai"
-version = "0.7.6"
+version = "0.7.7"
 description = "Automated red teaming and behavioral dataset engineering for LLMs, RAGs, and AI Agents"
 readme = "README-pypi.md"
 license = { file = "LICENSE" }
 authors = [
-    { name = "Ankit Mishra", email = "ankitmishra.letter@gmail.com", website = "https://www.aiankit.com", linkedin = "https://www.linkedin.com/in/ankitgmishra/"},
+    { name = "Ankit Mishra", email = "ankitmishra.letter@gmail.com" },
 ]
 keywords = [
     "ai",
@@ -82,10 +82,12 @@ Homepage = "https://github.com/ankitgmishra/mutant-ai"
 Documentation = "https://mutant-ai.readthedocs.io"
 Repository = "https://github.com/ankitgmishra/mutant-ai"
 "Bug Tracker" = "https://github.com/ankitgmishra/mutant-ai/issues"
+"Author Website" = "https://www.aiankit.com"
+"LinkedIn" = "https://www.linkedin.com/in/ankitgmishra/"
 
 # ─── Hatch ────────────────────────────────────────────────────────────────────
 [tool.hatch.build.targets.wheel]
-packages = ["mutant-ai"]
+packages = ["mutant"]
 
 # ─── Ruff ─────────────────────────────────────────────────────────────────────
 [tool.ruff]

@@ -25,6 +25,7 @@ from mutant.redteam.analyzer import analyze_response, analyze_root_cause
 from mutant.redteam.evaluator import EvaluationResult, evaluate_progress, update_target_model
 from mutant.redteam.generator import generate_attack
 from mutant.redteam.planner import AttackPlan, discover_capabilities, plan_attack
+from mutant.models import ReflectionEntry
 from mutant.redteam.report import BehaviorResult, RedTeamReport
 from mutant.redteam.target import TargetFn, TargetModel, TargetProfile
 from mutant.redteam.transcript import Progress, Transcript, Turn
@@ -212,12 +213,35 @@ async def red_team(
                 max_retries=max_retries,
             )
 
-            # ── STEP 6: UPDATE TARGET MODEL ──
+            # ── STEP 6: UPDATE TARGET MODEL & REFLECTION MEMORY ──
             target_model = update_target_model(
                 target_model, analysis, evaluation, plan.behavior,
                 turn_number=turn_idx + 1,
                 plan_hypothesis_id=plan.hypothesis_id,
             )
+            
+            # V0.5: Update Reflection Memory
+            outcome_str = "no_progress"
+            if evaluation.progress == Progress.SUCCESS:
+                outcome_str = "success"
+                if plan.strategy not in target_model.reflection_memory.succeeded_strategies:
+                    target_model.reflection_memory.succeeded_strategies.append(plan.strategy)
+            elif evaluation.progress == Progress.PARTIAL_PROGRESS:
+                outcome_str = "partial"
+                if plan.strategy not in target_model.reflection_memory.partially_worked:
+                    target_model.reflection_memory.partially_worked.append(plan.strategy)
+            elif evaluation.progress == Progress.FAILED:
+                outcome_str = "failed"
+                if plan.strategy not in target_model.reflection_memory.failed_strategies:
+                    target_model.reflection_memory.failed_strategies.append(plan.strategy)
+                    
+            target_model.reflection_memory.add_entry(ReflectionEntry(
+                turn=turn_idx + 1,
+                strategy=f"{plan.behavior} via {plan.strategy}",
+                outcome=outcome_str,
+                lesson=evaluation.reasoning,
+                confidence_delta=0.0, # Could be calculated if needed
+            ))
 
             # Snapshot hypothesis state for the report
             hypothesis_snapshots.append({

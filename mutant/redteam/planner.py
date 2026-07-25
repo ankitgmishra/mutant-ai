@@ -1,13 +1,11 @@
 """
 mutant/redteam/planner.py
 ==========================
-Hypothesis-driven attack planner.
+Hypothesis-driven attack planner with Candidate Strategy Generation.
 
 The planner behaves like a security researcher:
-  Observe → Form Hypotheses → Estimate Success → Choose Experiment → Attack
-
-Every attack is an experiment. Every response is evidence.
-Every piece of evidence updates the planner's understanding of the target.
+  Observe → Form Hypotheses → Generate Candidate Strategies
+  → Estimate Success & Cost → Choose Best Experiment → Attack
 """
 
 from __future__ import annotations
@@ -15,11 +13,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 from mutant.core.mutation import BehaviorAnalysis, MutationCategory
 from mutant.core.registry import MutationRegistry
 from mutant.core.registry import registry as _default_registry
+from mutant.models import CandidateStrategy
 from mutant.pipeline.prompts import render_prompt
 from mutant.providers.base import LLMMessage
 from mutant.redteam.target import TargetModel, TargetProfile
@@ -31,6 +30,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("mutant.redteam")
 
 
+# Keep this for backwards compatibility / simplified internal flow
 class AttackPlan(BaseModel):
     """Planner output — a hypothesis-linked experiment, not just a behavior pick."""
 
@@ -130,9 +130,10 @@ async def plan_attack(
 ) -> AttackPlan:
     """Select the next attack as a hypothesis-driven experiment.
 
-    The planner observes all available evidence, reviews active hypotheses,
-    and designs the next experiment to either confirm/reject a hypothesis
-    or maximize information gain about the target.
+    V0.5 Improvements:
+    - Generates MULTIPLE candidate strategies and picks the best one.
+    - Cost optimization: favors reusing cached observations & reflections.
+    - Avoids strategies definitively marked as failed in reflection memory.
     """
     reg = registry or _default_registry
 
@@ -192,10 +193,10 @@ async def plan_attack(
             for d in target_dims if d is not None
         ]
 
-    # Build conversation history text
+    # Build conversation history text (only last 5 turns to save context if there is reflection)
     history_text = ""
     if history:
-        lines = [f"{t.role.capitalize()}: {t.content}" for t in history[-10:]]
+        lines = [f"{t.role.capitalize()}: {t.content}" for t in history[-6:]]
         history_text = "\n".join(lines)
 
     # Build previous evaluation context
@@ -211,24 +212,74 @@ async def plan_attack(
 
     # Build hypothesis-driven context
     hypothesis_context = model.hypothesis_summary()
-    evidence_context = model.evidence_summary(last_n=15)
+    evidence_context = model.evidence_summary(last_n=10)
     resistance_context = model.resistance_summary()
+    reflection_context = model.reflection_memory.compact_summary(last_n=5)
 
     prompt = render_prompt(
         "redteam_planning.md",
         goal=goal,
         available_behaviors=available,
-        target_model=model.model_dump(exclude={"hypotheses", "evidence_log"}),
+        target_model=model.model_dump(exclude={"hypotheses", "evidence_log", "reflection_memory"}),
         history=history_text,
         previous_evaluation=previous_eval,
         hypotheses=hypothesis_context,
         evidence=evidence_context,
         resistance_scores=resistance_context,
+        reflection_memory=reflection_context,
     )
 
-    return await provider.complete_json(
-        [LLMMessage(role="user", content=prompt)],
-        AttackPlan,
-        temperature=0.5,
-        max_retries=max_retries,
+    # Ask the LLM to generate multiple candidate strategies
+    CandidateListResponse = create_model(
+        "CandidateListResponse",
+        candidates=(list[CandidateStrategy], ...),
+        hypothesis_id=(str, ...),
+        hypothesis_text=(str, ...),
+        expected_outcome=(str, ...),
     )
+
+    try:
+        response = await provider.complete_json(
+            [LLMMessage(role="user", content=prompt)],
+            CandidateListResponse,
+            temperature=0.7,
+            max_retries=max_retries,
+        )
+        
+        candidates = getattr(response, "candidates", [])
+        if not candidates:
+            raise ValueError("No candidates generated.")
+
+        # Filter out definitively failed strategies
+        valid_candidates = []
+        for c in candidates:
+            if model.reflection_memory.should_skip(c.name) or model.reflection_memory.should_skip(c.behavior):
+                continue
+            valid_candidates.append(c)
+            
+        if not valid_candidates:
+            valid_candidates = candidates # Fallback if all were filtered
+
+        # Pick the best scoring candidate
+        best_candidate = max(valid_candidates, key=lambda c: c.score)
+
+        return AttackPlan(
+            behavior=best_candidate.behavior,
+            strategy=best_candidate.approach,
+            escalation=best_candidate.escalation,
+            reason_summary=best_candidate.rationale,
+            hypothesis_id=getattr(response, "hypothesis_id", ""),
+            hypothesis_text=getattr(response, "hypothesis_text", ""),
+            expected_outcome=getattr(response, "expected_outcome", ""),
+        )
+
+    except Exception as e:
+        logger.warning(f"Strategy generation failed: {e}. Falling back to default.")
+        # Fallback to a basic direct plan
+        behavior_id = available[0]["id"] if available else "safety.prompt_injection"
+        return AttackPlan(
+            behavior=behavior_id,
+            strategy="direct",
+            escalation=1,
+            reason_summary="Fallback plan due to generation error.",
+        )
