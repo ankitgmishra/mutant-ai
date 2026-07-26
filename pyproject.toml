@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mutant-ai"
-version = "0.7.7"
+version = "0.7.8"
 description = "Automated red teaming and behavioral dataset engineering for LLMs, RAGs, and AI Agents"
 readme = "README-pypi.md"
 license = { file = "LICENSE" }
@@ -79,7 +79,7 @@ datasets = [
 
 [project.urls]
 Homepage = "https://github.com/ankitgmishra/mutant-ai"
-Documentation = "https://mutant-ai.readthedocs.io"
+Documentation = "https://mutant.aiankit.com/"
 Repository = "https://github.com/ankitgmishra/mutant-ai"
 "Bug Tracker" = "https://github.com/ankitgmishra/mutant-ai/issues"
 "Author Website" = "https://www.aiankit.com"

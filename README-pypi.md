@@ -1,5 +1,12 @@
 <h1 align="center" style="color: black;">Mutant-AI<span style="color: #8b5cf6;">.</span></h1>
 
+<p align="center">
+  <a href="https://mutant.aiankit.com/" target="_blank">
+    <img src="https://img.shields.io/badge/📖_Read_The_Docs-8b5cf6?style=for-the-badge" alt="Read Documentation">
+  </a><br>
+  <a href="https://mutant.aiankit.com/" target="_blank"><strong>https://mutant.aiankit.com/</strong></a>
+</p>
+
 [![Build Status](https://img.shields.io/badge/build-passing-success.svg?style=flat-square)](#)
 [![PyPI](https://img.shields.io/badge/pypi-v0.7.6-8b5cf6.svg?style=flat-square)](https://pypi.org/project/mutant-ai)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square)](#)

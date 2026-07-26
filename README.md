@@ -9,7 +9,15 @@
 </p>
 
 <p align="center">
+  <a href="https://mutant.aiankit.com/" target="_blank">
+    <img src="https://img.shields.io/badge/📖_Read_The_Docs-8b5cf6?style=for-the-badge" alt="Read Documentation">
+  </a><br>
+  <a href="https://mutant.aiankit.com/" target="_blank"><strong>https://mutant.aiankit.com/</strong></a>
+</p>
+
+<p align="center">
   <strong>Automated Red Teaming & Behavioral Dataset Engineering for LLMs, RAGs & AI Agents.</strong><br>
+
   Analyze scenarios, discover behavioral risks, and generate targeted adversarial test cases.
 </p>
 
