@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mutant Coverage Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --border-color: #30363d;
+            --cyan: #58a6ff;
+            --green: #238636;
+            --green-text: #3fb950;
+            --red: #da3633;
+            --red-text: #ff7b72;
+            --yellow: #d29922;
+            --yellow-text: #e3b341;
+            --magenta: #bc8cff;
+            --blue: #79c0ff;
+            --dim: #8b949e;
+            --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-mono);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px 20px;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        h1, h2, h3, h4 {
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 16px;
+        }
+
+        .rule {
+            border-top: 1px dashed var(--cyan);
+            margin: 32px 0;
+            position: relative;
+        }
+
+        .rule span {
+            background: var(--bg-color);
+            color: var(--cyan);
+            font-weight: bold;
+            position: absolute;
+            top: -12px;
+            left: 0;
+            padding-right: 12px;
+        }
+
+        .panel {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+
+        .header-panel {
+            border: 3px double var(--cyan);
+            text-align: center;
+            padding: 24px;
+            border-radius: 8px;
+        }
+
+        .text-cyan { color: var(--cyan); }
+        .text-red { color: var(--red-text); }
+        .text-green { color: var(--green-text); }
+        .text-yellow { color: var(--yellow-text); }
+        .text-dim { color: var(--dim); }
+        .text-white { color: #ffffff; }
+        .bold { font-weight: bold; }
+
+        .data-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .data-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .data-list li:last-child {
+            border-bottom: none;
+        }
+
+        ul.recommendations {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        ul.recommendations li {
+            padding: 10px 12px;
+            background: rgba(210, 153, 34, 0.1);
+            border-left: 3px solid var(--yellow);
+            color: var(--yellow-text);
+            margin-bottom: 12px;
+            border-radius: 0 4px 4px 0;
+        }
+        ul.recommendations.safe li {
+            background: rgba(35, 134, 54, 0.1);
+            border-left: 3px solid var(--green);
+            color: var(--green-text);
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            background: var(--border-color);
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--cyan);
+            border-radius: 3px;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="panel header-panel">
+        <div class="bold text-cyan" style="font-size: 1.2em; margin-bottom: 8px;">MUTANT COVERAGE DASHBOARD</div>
+        <div class="bold text-white" style="font-size: 1.1em;">EVALUATION DATASET PROFILE</div>
+    </div>
+
+    <div class="layout-grid">
+        <!-- LEFT COLUMN -->
+        <div>
+            <div class="rule"><span>OVERVIEW</span></div>
+            <div class="panel">
+                <ul class="data-list">
+                    <li>
+                        <span class="text-dim">Total Scenarios</span>
+                        <span class="bold text-white">{{ data.scenario_count }}</span>
+                    </li>
+                    <li>
+                        <span class="text-dim">Unique Scenarios</span>
+                        <span class="bold text-white">{{ unique_scenarios }}</span>
+                    </li>
+                    <li>
+                        <span class="text-dim">Duplicates</span>
+                        <span class="bold text-white">{{ dupe_pct }}%</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="rule"><span>RECOMMENDATIONS</span></div>
+            {% if recommendations %}
+                <ul class="recommendations">
+                    {% for spot in recommendations %}
+                        <li>⚠️ {{ spot }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <ul class="recommendations safe">
+                    <li>✓ Dataset appears well-balanced.</li>
+                </ul>
+            {% endif %}
+
+            <div class="rule"><span>METADATA</span></div>
+            <div class="panel">
+                <div class="bold text-cyan" style="margin-bottom: 12px;">Conversation</div>
+                <ul class="data-list">
+                    <li><span class="text-white">Single-turn</span> <span class="text-cyan">{{ turns_pct['Single Turn'] }}%</span></li>
+                    <li><span class="text-white">Multi-turn</span> <span class="text-cyan">{{ turns_pct['Multi Turn'] }}%</span></li>
+                </ul>
+
+                <div class="bold text-cyan" style="margin-top: 24px; margin-bottom: 12px;">Difficulty</div>
+                <ul class="data-list">
+                    <li><span class="text-white">Easy</span> <span class="text-cyan">{{ diff_pct['Easy'] }}%</span></li>
+                    <li><span class="text-white">Medium</span> <span class="text-cyan">{{ diff_pct['Medium'] }}%</span></li>
+                    <li><span class="text-white">Hard</span> <span class="text-cyan">{{ diff_pct['Hard'] }}%</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div>
+            <div class="rule"><span>DATASET FOOTPRINT</span></div>
+            <div class="panel">
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="footprintRadar"></canvas>
+                </div>
+            </div>
+
+            <div class="rule"><span>CATEGORY BREAKDOWN</span></div>
+            <div class="panel">
+                
+                {% macro progress_section(title, breakdown) %}
+                    <div class="bold text-cyan" style="margin-top: 16px; margin-bottom: 12px;">{{ title }}</div>
+                    {% for name, count in breakdown.items()|sort(attribute='1', reverse=true) %}
+                        {% if count > 0 or loop.index <= 3 %}
+                            <div style="margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
+                                    <span class="text-white">{{ name }}</span>
+                                    <span class="text-cyan">{{ (count / (breakdown.values()|sum or 1) * 100)|int }}%</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill" style="width: {{ (count / (breakdown.values()|sum or 1) * 100)|int }}%"></div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endmacro %}
+
+                {{ progress_section('Emotion', emotion) }}
+                <div style="height: 16px;"></div>
+                {{ progress_section('Language', language) }}
+                <div style="height: 16px;"></div>
+                {{ progress_section('Domain', domain) }}
+
+            </div>
+        </div>
+    </div>
+
+    <br><br>
+
+    <script>
+        const ctx = document.getElementById('footprintRadar');
+        if (ctx) {
+            Chart.defaults.color = '#8b949e';
+            Chart.defaults.font.family = 'ui-monospace, SFMono-Regular, Consolas, monospace';
+
+            new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: {{ radar_labels | tojson }},
+                    datasets: [{
+                        label: 'Footprint Score',
+                        data: {{ radar_data | tojson }},
+                        backgroundColor: 'rgba(88, 166, 255, 0.15)',
+                        borderColor: '#58a6ff',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#58a6ff',
+                        pointBorderColor: '#58a6ff',
+                        pointHoverBackgroundColor: '#ffffff',
+                        pointHoverBorderColor: '#58a6ff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0d1117',
+                            titleColor: '#c9d1d9',
+                            bodyColor: '#c9d1d9',
+                            borderColor: '#30363d',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.r + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: '#30363d' },
+                            grid: { color: '#30363d' },
+                            pointLabels: {
+                                color: '#c9d1d9',
+                                font: { size: 11, weight: '500' }
+                            },
+                            ticks: {
+                                display: false,
+                                min: 0,
+                                max: 100
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

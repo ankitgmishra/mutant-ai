@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mutant Red Team Report</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --border-color: #30363d;
+            --cyan: #58a6ff;
+            --green: #238636;
+            --green-text: #3fb950;
+            --red: #da3633;
+            --red-text: #ff7b72;
+            --yellow: #d29922;
+            --yellow-text: #e3b341;
+            --magenta: #bc8cff;
+            --blue: #79c0ff;
+            --dim: #8b949e;
+            --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-mono);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px 20px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        h1, h2, h3, h4 {
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 16px;
+        }
+
+        .rule {
+            border-top: 1px dashed var(--cyan);
+            margin: 32px 0;
+            position: relative;
+        }
+
+        .rule span {
+            background: var(--bg-color);
+            color: var(--cyan);
+            font-weight: bold;
+            position: absolute;
+            top: -12px;
+            left: 0;
+            padding-right: 12px;
+        }
+
+        .panel {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .panel.cyan { border-color: var(--cyan); }
+        .panel.red { border-color: var(--red); }
+        .panel.green { border-color: var(--green); }
+        .panel.yellow { border-color: var(--yellow); }
+
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .header-panel {
+            border: 3px double var(--cyan);
+            text-align: center;
+            padding: 24px;
+            border-radius: 8px;
+        }
+
+        .text-cyan { color: var(--cyan); }
+        .text-red { color: var(--red-text); }
+        .text-green { color: var(--green-text); }
+        .text-yellow { color: var(--yellow-text); }
+        .text-magenta { color: var(--magenta); }
+        .text-blue { color: var(--blue); }
+        .text-dim { color: var(--dim); }
+        .text-white { color: #ffffff; }
+        .bold { font-weight: bold; }
+
+        .turn-block {
+            margin-bottom: 24px;
+        }
+
+        .message-block {
+            margin: 12px 0;
+            padding-left: 12px;
+            border-left: 3px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            color: var(--dim);
+            font-weight: normal;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        ul li::before {
+            content: "•";
+            color: var(--red-text);
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+
+        ul.recommendations li::before {
+            content: "✓";
+            color: var(--green-text);
+        }
+
+        .tree-node {
+            margin: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .tree-node::before {
+            content: "├──";
+            position: absolute;
+            left: 0;
+            color: var(--dim);
+        }
+        
+        .tree-node:last-child::before {
+            content: "└──";
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <div class="panel header-panel">
+        <div class="bold text-cyan" style="font-size: 1.2em; margin-bottom: 8px;">MUTANT RED TEAM REPORT</div>
+        {% if report.vulnerable_behaviors|length > 0 %}
+            <div class="bold text-red" style="font-size: 1.1em;">{{ report.vulnerable_behaviors|length }}/{{ report.total_behaviors }} VULNERABILITIES FOUND</div>
+        {% else %}
+            <div class="bold text-green" style="font-size: 1.1em;">ALL {{ report.total_behaviors }} BEHAVIORS DEFENDED</div>
+        {% endif %}
+        <div class="text-dim" style="margin-top: 8px;">{{ report.total_turns }} turns · {{ "%.1f"|format(report.duration_seconds) }}s</div>
+    </div>
+
+    <!-- GOAL -->
+    <div class="rule"><span>GOAL</span></div>
+    <div class="bold text-white" style="margin-left: 16px;">{{ report.goal }}</div>
+
+    <!-- TIMELINE -->
+    <div class="rule"><span>EXECUTION TIMELINE</span></div>
+    
+    {% set global_turn = namespace(count=0) %}
+    
+    {% for transcript in report.transcripts %}
+        {% for i in range(0, transcript.turns|length - 1, 2) %}
+            {% set global_turn.count = global_turn.count + 1 %}
+            {% set attacker_turn = transcript.turns[i] %}
+            {% set target_turn = transcript.turns[i+1] if (i+1) < transcript.turns|length else none %}
+            
+            {% set plan = attacker_turn.metadata.get('plan', {}) %}
+            {% set behavior = plan.get('behavior', transcript.behavior) %}
+            {% set strategy = plan.get('strategy', 'direct') %}
+            {% set escalation = plan.get('escalation', 1) %}
+            {% set reason_summary = plan.get('reason_summary', '') %}
+            
+            {% set eval_data = target_turn.metadata.get('evaluation', {}) if target_turn else {} %}
+            {% set turn_progress = eval_data.get('progress', 'no_progress') %}
+            
+            {% set icon = '✅' if turn_progress == 'success' else ('⚠️' if turn_progress == 'partial_progress' else '❌') %}
+            {% set border_class = 'green' if turn_progress == 'success' else ('yellow' if turn_progress == 'partial_progress' else 'red') %}
+            {% set text_class = 'text-green' if turn_progress == 'success' else ('text-yellow' if turn_progress == 'partial_progress' else 'text-red') %}
+            
+            <div class="panel {{ border_class }} turn-block">
+                <div class="panel-title text-white">
+                    <span class="bold">Turn {{ global_turn.count }}</span>
+                    <span style="float: right;">{{ icon }}</span>
+                </div>
+                
+                <div><span class="bold text-white">Behavior:</span> &nbsp;&nbsp;&nbsp;{{ behavior.split('.')[-1].replace('_', ' ').title() }}</div>
+                <div><span class="bold text-white">Strategy:</span> &nbsp;&nbsp;&nbsp;{{ strategy }} (escalation: {{ escalation }}/5)</div>
+                <br>
+                
+                <div class="bold text-magenta">Attacker:</div>
+                <div class="message-block text-white">"{{ attacker_turn.content }}"</div>
+                
+                {% if target_turn %}
+                    <div class="bold text-blue">Target:</div>
+                    <div class="message-block text-white">"{{ target_turn.content }}"</div>
+                {% endif %}
+                
+                <div><span class="bold text-white">Result:</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ icon }} <span class="bold {{ text_class }}">{{ turn_progress.replace('_', ' ').upper() }}</span></div>
+                
+                {% if reason_summary or eval_data.get('reasoning') %}
+                    <br>
+                    <div class="bold text-white">Planner:</div>
+                    <div class="text-dim">{{ eval_data.get('reasoning', reason_summary) }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <!-- ATTACK GRAPH -->
+    <div class="rule"><span>ATTACK GRAPH</span></div>
+    <div style="margin-left: 16px;">
+        <div class="bold text-white">Goal: {{ report.goal }}</div>
+        {% for transcript in report.transcripts %}
+            {% for i in range(0, transcript.turns|length - 1, 2) %}
+                {% set attacker_t = transcript.turns[i] %}
+                {% set plan = attacker_t.metadata.get("plan", {}) %}
+                {% set b_id = plan.get("behavior", transcript.behavior) %}
+                {% set strategy = plan.get("strategy", "direct") %}
+                
+                {% set target_t = transcript.turns[i+1] if (i+1) < transcript.turns|length else none %}
+                {% set eval_data = target_t.metadata.get("evaluation", {}) if target_t else {} %}
+                {% set progress = eval_data.get("progress", "no_progress") %}
+                
+                {% set icon = '✅' if progress == 'success' else ('⚠️' if progress == 'partial_progress' else '❌') %}
+                {% set text_class = 'text-green' if progress == 'success' else ('text-yellow' if progress == 'partial_progress' else 'text-red') %}
+                
+                <div class="tree-node">
+                    {{ icon }} <span class="bold {{ text_class }}">{{ b_id.split('.')[-1].replace('_', ' ').title() }}</span> 
+                    <span class="text-dim">({{ strategy }})</span>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+
+    <!-- ROOT CAUSE -->
+    {% if report.root_cause %}
+        <div class="rule"><span>ROOT CAUSE ANALYSIS</span></div>
+        <div style="margin-left: 16px;">
+            <div class="bold text-white">Why did this succeed?</div>
+            <div>{{ report.root_cause.why_succeeded }}</div>
+            <br>
+            {% if report.root_cause.root_causes %}
+                <div class="bold text-white">Root Causes:</div>
+                <ul>
+                    {% for cause in report.root_cause.root_causes %}
+                        <li>{{ cause }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <!-- IMPACT -->
+        <div class="rule"><span>IMPACT</span></div>
+        <div style="margin-left: 16px;">
+            {% set sev = report.root_cause.impact_severity.lower() %}
+            {% set sev_class = 'text-red' if sev == 'critical' else ('text-red' if sev == 'high' else ('text-yellow' if sev == 'medium' else 'text-green')) %}
+            
+            <div><span class="bold text-white">Severity:</span> &nbsp;<span class="bold {{ sev_class }}">{{ report.root_cause.impact_severity.upper() }}</span></div>
+            <div><span class="bold text-white">Risk:</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ report.root_cause.impact_description }}</div>
+        </div>
+
+        <!-- RECOMMENDATIONS -->
+        {% if report.root_cause.recommendations %}
+            <div class="rule"><span>RECOMMENDATIONS</span></div>
+            <div style="margin-left: 16px;">
+                <ul class="recommendations">
+                    {% for rec in report.root_cause.recommendations %}
+                        <li>{{ rec }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    {% else %}
+        <!-- ALL DEFENDED -->
+        <br>
+        <div class="panel green">
+            <div class="panel-title text-green">DEFENSE STATUS</div>
+            <div class="bold text-green">All tested behaviors were successfully defended.</div>
+            <br>
+            <div class="text-dim">The target system resisted all attack strategies attempted during this session. Continue testing with broader behavior sets and higher escalation levels for deeper coverage.</div>
+        </div>
+    {% endif %}
+
+    <!-- HYPOTHESIS EVOLUTION -->
+    {% if report.hypothesis_evolution %}
+        <div class="rule"><span>HYPOTHESIS EVOLUTION</span></div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th class="text-white">Turn</th>
+                    <th>Hypothesis Tested</th>
+                    <th style="text-align: center;" class="text-white">Result</th>
+                    <th>Hypotheses Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for snapshot in report.hypothesis_evolution %}
+                    {% set progress = snapshot.get('result', 'no_progress') %}
+                    {% set icon = '✅' if progress == 'success' else ('⚠️' if progress == 'partial_progress' else '❌') %}
+                    {% set text_class = 'text-green' if progress == 'success' else ('text-yellow' if progress == 'partial_progress' else 'text-red') %}
+                    
+                    <tr>
+                        <td class="text-cyan" style="text-align: center;">{{ snapshot.turn }}</td>
+                        <td class="text-dim">{{ snapshot.get('tested', '')[:60] }}</td>
+                        <td style="text-align: center;"><span class="bold {{ text_class }}">{{ icon }}</span></td>
+                        <td>
+                            {% for h in snapshot.get('hypotheses', []) %}
+                                {% if h.status == 'rejected' %}
+                                    <span class="text-red">✗ {{ h.text[:25] }}...</span>
+                                {% elif h.confidence > 0.7 %}
+                                    <span class="text-green">{{ "%.0f"|format(h.confidence * 100) }}%</span>
+                                {% elif h.confidence > 0.3 %}
+                                    <span class="text-yellow">{{ "%.0f"|format(h.confidence * 100) }}%</span>
+                                {% else %}
+                                    <span class="text-red">{{ "%.0f"|format(h.confidence * 100) }}%</span>
+                                {% endif %}
+                                {% if not loop.last %} · {% endif %}
+                            {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Final Hypotheses -->
+        {% set final = report.hypothesis_evolution[-1] %}
+        <div style="margin-left: 16px;">
+            <div class="bold text-white">Final Hypotheses:</div>
+            {% for h in final.get('hypotheses', []) %}
+                {% if h.status == 'rejected' %}
+                    <div><span class="text-red">✗</span> <span class="text-dim" style="text-decoration: line-through;">{{ h.text }}</span> <span class="text-red">(rejected)</span></div>
+                {% elif h.confidence > 0.7 %}
+                    <div><span class="text-green">●</span> {{ h.text }} <span class="text-green">({{ "%.0f"|format(h.confidence * 100) }}%)</span></div>
+                {% elif h.confidence > 0.3 %}
+                    <div><span class="text-yellow">●</span> {{ h.text }} <span class="text-yellow">({{ "%.0f"|format(h.confidence * 100) }}%)</span></div>
+                {% else %}
+                    <div><span class="text-red">●</span> {{ h.text }} <span class="text-red">({{ "%.0f"|format(h.confidence * 100) }}%)</span></div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- STATISTICS -->
+    <div class="rule"><span>ATTACK STATISTICS</span></div>
+    <table>
+        <thead>
+            <tr>
+                <th class="text-white">Behavior</th>
+                <th style="text-align: center;" class="text-cyan">Attempts</th>
+                <th style="text-align: center;" class="text-white">Result</th>
+                <th>Strategy</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in report.behaviors_tested %}
+                {% set name = b.behavior_name or b.behavior.split('.')[-1].replace('_', ' ').title() %}
+                
+                {% set strategy = 'direct' %}
+                {% for t in report.transcripts %}
+                    {% if t.behavior == b.behavior %}
+                        {% set strategy = t.strategy or 'direct' %}
+                    {% endif %}
+                {% endfor %}
+                
+                <tr>
+                    <td class="text-white">{{ name }}</td>
+                    <td style="text-align: center;">{{ b.attempts }}</td>
+                    <td style="text-align: center;">
+                        {% if b.successes > 0 %}
+                            <span class="bold text-green">✅ {{ b.successes }}/{{ b.attempts }}</span>
+                        {% else %}
+                            <span class="bold text-red">❌ 0/{{ b.attempts }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-dim">{{ strategy }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <div style="margin-left: 16px;">
+        <div><span class="bold text-white">Total Turns:</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ report.total_turns }}</div>
+        <div><span class="bold text-white">Behaviors Tested:</span> &nbsp;&nbsp;&nbsp;{{ report.total_behaviors }}</div>
+        <div><span class="bold text-white">Vulnerabilities:</span> &nbsp;&nbsp;&nbsp;&nbsp;{{ report.vulnerable_behaviors|length }}/{{ report.total_behaviors }} ({{ "%.0f"|format(report.overall_vulnerability_rate * 100) }}%)</div>
+        <div><span class="bold text-white">Duration:</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ "%.1f"|format(report.duration_seconds) }}s</div>
+    </div>
+
+    <!-- REGRESSION TESTS -->
+    {% if report.regression_paths %}
+        <div class="rule"><span>REGRESSION TESTS</span></div>
+        <div style="margin-left: 16px;">
+            <ul class="recommendations">
+                {% for path in report.regression_paths %}
+                    <li>Saved: <span class="bold text-white">{{ path }}</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <br><br>
+</body>
+</html>

@@ -106,5 +106,5 @@ __all__ = [
     "registry",
 ]
 
-__version__ = "0.5.0"
+__version__ = "0.7.9"
 __author__ = "Ankit Mishra"

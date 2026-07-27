@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mutant Report — {{ data.scenario.title }}</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --border-color: #30363d;
+            --cyan: #58a6ff;
+            --green: #238636;
+            --green-text: #3fb950;
+            --red: #da3633;
+            --red-text: #ff7b72;
+            --yellow: #d29922;
+            --yellow-text: #e3b341;
+            --magenta: #bc8cff;
+            --blue: #79c0ff;
+            --dim: #8b949e;
+            --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-mono);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px 20px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        h1, h2, h3, h4 {
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 16px;
+        }
+
+        .rule {
+            border-top: 1px dashed var(--cyan);
+            margin: 32px 0;
+            position: relative;
+        }
+
+        .rule span {
+            background: var(--bg-color);
+            color: var(--cyan);
+            font-weight: bold;
+            position: absolute;
+            top: -12px;
+            left: 0;
+            padding-right: 12px;
+        }
+
+        .panel {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .panel.cyan { border-color: var(--cyan); }
+        .panel.red { border-color: var(--red); }
+        .panel.green { border-color: var(--green); }
+        .panel.yellow { border-color: var(--yellow); }
+
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .header-panel {
+            border: 3px double var(--cyan);
+            text-align: center;
+            padding: 24px;
+            border-radius: 8px;
+        }
+
+        .text-cyan { color: var(--cyan); }
+        .text-red { color: var(--red-text); }
+        .text-green { color: var(--green-text); }
+        .text-yellow { color: var(--yellow-text); }
+        .text-magenta { color: var(--magenta); }
+        .text-blue { color: var(--blue); }
+        .text-dim { color: var(--dim); }
+        .text-white { color: #ffffff; }
+        .bold { font-weight: bold; }
+
+        .message-block {
+            margin: 12px 0;
+            padding-left: 12px;
+            border-left: 3px solid var(--border-color);
+            white-space: pre-wrap;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            color: var(--dim);
+            font-weight: normal;
+        }
+
+        /* Collapsible case panels */
+        .case-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .case-header:hover {
+            opacity: 0.8;
+        }
+        
+        .case-body {
+            display: none;
+            margin-top: 16px;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 16px;
+        }
+        
+        .case-body.open {
+            display: block;
+        }
+        
+        .chevron {
+            color: var(--dim);
+            transition: transform 0.2s;
+        }
+        
+        .chevron.open {
+            transform: rotate(180deg);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <div class="panel header-panel">
+        <div class="bold text-cyan" style="font-size: 1.2em; margin-bottom: 8px;">MUTANT AUGMENTATION REPORT</div>
+        <div class="bold text-white" style="font-size: 1.1em;">{{ data.scenario.title }}</div>
+        <div class="text-dim" style="margin-top: 8px;">{{ data.summary.total }} mutations · Generated: {{ data.generated_at[:19] | replace("T", " ") }} UTC</div>
+    </div>
+
+    <!-- ORIGINAL SCENARIO -->
+    <div class="rule"><span>ORIGINAL SCENARIO</span></div>
+    <div class="panel">
+        <div class="message-block text-white">{{ data.scenario.description }}</div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="rule"><span>SUMMARY</span></div>
+    <div style="display: flex; gap: 24px; margin-left: 16px;">
+        <div style="flex: 1;">
+            <div class="bold text-cyan" style="margin-bottom: 8px;">By Category</div>
+            {% for cat, count in data.summary.by_category.items()|sort %}
+                <div><span class="text-white">{{ cat.title() }}:</span> <span class="bold text-cyan">{{ count }}</span></div>
+            {% endfor %}
+        </div>
+        <div style="flex: 1;">
+            <div class="bold text-cyan" style="margin-bottom: 8px;">By Severity</div>
+            {% for sev in ["low", "medium", "high", "critical"] %}
+                {% if sev in data.summary.by_severity %}
+                    {% set count = data.summary.by_severity[sev] %}
+                    {% set style = 'text-green' if sev == 'low' else ('text-yellow' if sev == 'medium' else 'text-red') %}
+                    <div><span class="text-white">{{ sev.title() }}:</span> <span class="bold {{ style }}">{{ count }}</span></div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- MUTATION CASES -->
+    <div class="rule"><span>MUTATION CASES ({{ data.summary.total }})</span></div>
+    
+    {% for case in data.cases %}
+        {% set sev_class = 'green' if case.severity == 'low' else ('yellow' if case.severity == 'medium' else 'red') %}
+        {% set text_class = 'text-green' if case.severity == 'low' else ('text-yellow' if case.severity == 'medium' else 'text-red') %}
+        
+        <div class="panel {{ sev_class }}">
+            <div class="case-header" onclick="toggleCase(this)">
+                <div>
+                    <span class="text-dim">#{{ loop.index }}</span> &nbsp; 
+                    <span class="bold text-white">{{ case.dimension_name }}</span> &nbsp;
+                    <span class="bold {{ text_class }}">[{{ case.severity.upper() }}]</span>
+                </div>
+                <div class="chevron">▼</div>
+            </div>
+            
+            <div class="case-body">
+                {% if case.rationale %}
+                    <div class="bold text-cyan" style="font-size: 0.9em;">Rationale:</div>
+                    <div class="text-dim" style="font-size: 0.9em; margin-bottom: 12px;">{{ case.rationale }}</div>
+                {% endif %}
+                
+                <div class="bold text-blue">Original:</div>
+                <div class="message-block text-white">{{ case.original }}</div>
+                
+                <div class="bold text-magenta">Mutated:</div>
+                <div class="message-block text-white" style="border-left-color: var(--magenta);">{{ case.mutated }}</div>
+                
+                <div class="text-dim" style="font-size: 0.85em; margin-top: 12px;">
+                    Dimension: <span class="text-white">{{ case.dimension_id }}</span> · 
+                    Novelty: <span class="text-white">{{ "%.2f"|format(case.get('novelty_score', 1.0)) }}</span>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+
+    <br><br>
+
+    <script>
+        function toggleCase(header) {
+            const body = header.nextElementSibling;
+            const chevron = header.querySelector('.chevron');
+            body.classList.toggle('open');
+            chevron.classList.toggle('open');
+        }
+    </script>
+</body>
+</html>

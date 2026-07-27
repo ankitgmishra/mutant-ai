@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mutant-ai"
-version = "0.7.8"
+version = "0.7.9"
 description = "Automated red teaming and behavioral dataset engineering for LLMs, RAGs, and AI Agents"
 readme = "README-pypi.md"
 license = { file = "LICENSE" }

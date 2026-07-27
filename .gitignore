@@ -89,6 +89,7 @@ coverage_dashboard.html
 test.ipynb
 *.ipynb
 *.html
+!mutant/prompts/*.html
 
 # Scratch / one-off dev files at root level
 scratch*.py
