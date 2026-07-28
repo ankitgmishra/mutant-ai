@@ -1,23 +1,25 @@
 <h1 align="center">Mutant-AI<span style="color: #8b5cf6;">.</span></h1>
 
 <p align="center">
+  <a href="https://mutant.aiankit.com/" target="_blank">
+    <img src="assets/landing.png" alt="Mutant AI Landing Page" width="100%">
+  </a>
+</p>
+
+<h3 align="center">
+  Documentation Link: <a href="https://mutant.aiankit.com/" target="_blank">https://mutant.aiankit.com/</a>
+</h3>
+
+<p align="center">
   <img src="https://img.shields.io/badge/build-passing-success.svg?style=flat-square" alt="Build Status">
-[![PyPI](https://img.shields.io/badge/pypi-v0.7.6-8b5cf6.svg?style=flat-square)](https://pypi.org/project/mutant-ai)
+  <a href="https://pypi.org/project/mutant-ai"><img src="https://img.shields.io/badge/pypi-v0.7.9-8b5cf6.svg?style=flat-square" alt="PyPI"></a>
   <img src="https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square" alt="Python">
   <img src="https://img.shields.io/badge/coverage-100%25-success.svg?style=flat-square" alt="Coverage">
   <img src="https://img.shields.io/badge/License-MIT-8b5cf6.svg?style=flat-square" alt="License: MIT">
 </p>
 
 <p align="center">
-  <a href="https://mutant.aiankit.com/" target="_blank">
-    <img src="https://img.shields.io/badge/📖_Read_The_Docs-8b5cf6?style=for-the-badge" alt="Read Documentation">
-  </a><br>
-  <a href="https://mutant.aiankit.com/" target="_blank"><strong>https://mutant.aiankit.com/</strong></a>
-</p>
-
-<p align="center">
   <strong>Automated Red Teaming & Behavioral Dataset Engineering for LLMs, RAGs & AI Agents.</strong><br>
-
   Analyze scenarios, discover behavioral risks, and generate targeted adversarial test cases.
 </p>
 
