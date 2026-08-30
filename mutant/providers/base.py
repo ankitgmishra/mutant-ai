@@ -180,14 +180,24 @@ class BaseLLMProvider(ABC):
         try:
             data = json.loads(text)
         except json.JSONDecodeError as exc:
-            # Try to find JSON block within free text
-            import re
-
-            match = re.search(r"\{.*\}", text, re.DOTALL)
-            if match:
-                try:
-                    data = json.loads(match.group())
-                except json.JSONDecodeError:
+            # Try to find the first balanced JSON object
+            start = text.find('{')
+            if start != -1:
+                count = 0
+                for i, char in enumerate(text[start:]):
+                    if char == '{':
+                        count += 1
+                    elif char == '}':
+                        count -= 1
+                    
+                    if count == 0:
+                        json_str = text[start:start + i + 1]
+                        try:
+                            data = json.loads(json_str)
+                            break
+                        except json.JSONDecodeError:
+                            pass
+                else:
                     raise ParseError(
                         f"Could not parse JSON from LLM response: {exc}",
                         raw_content=content,
