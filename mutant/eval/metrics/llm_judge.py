@@ -35,7 +35,7 @@ logger = logging.getLogger("mutant.eval")
 class _JudgeVerdict(BaseModel):
     """Structured response from the LLM judge with Chain of Thought."""
 
-    chain_of_thought: str = Field(
+    chain_of_thought: Any = Field(
         description="Detailed step-by-step reasoning explaining the evaluation before assigning the score. Break down the criteria."
     )
     score: float = Field(ge=0.0, le=1.0, description="Score from 0.0 to 1.0.")
