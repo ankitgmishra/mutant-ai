@@ -132,9 +132,24 @@ class BaseLLMProvider(ABC):
             against ``schema``.
         """
         last_error = None
+        
+        # Append JSON reminder to the last user message
+        modified_messages = list(messages)
+        if modified_messages and modified_messages[-1].role == "user":
+            schema_json = schema.model_json_schema()
+            reminder = f"\n\nYou must respond ONLY with a valid JSON object matching this schema:\n{json.dumps(schema_json, indent=2)}"
+            modified_messages[-1] = LLMMessage(
+                role="user",
+                content=modified_messages[-1].content + reminder
+            )
+        elif modified_messages:
+            schema_json = schema.model_json_schema()
+            reminder = f"You must respond ONLY with a valid JSON object matching this schema:\n{json.dumps(schema_json, indent=2)}"
+            modified_messages.append(LLMMessage(role="user", content=reminder))
+
         for _attempt in range(max_retries):
             response = await self.complete(
-                messages, temperature=temperature, max_tokens=max_tokens
+                modified_messages, temperature=temperature, max_tokens=max_tokens
             )
             try:
                 return self._parse_json(response.content, schema)
