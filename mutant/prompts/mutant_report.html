@@ -208,10 +208,10 @@
                 {% endif %}
                 
                 <div class="bold text-blue">Original:</div>
-                <div class="message-block text-white">{{ case.original }}</div>
+                <div class="message-block text-white">{{ case.original_description }}</div>
                 
                 <div class="bold text-magenta">Mutated:</div>
-                <div class="message-block text-white" style="border-left-color: var(--magenta);">{{ case.mutated }}</div>
+                <div class="message-block text-white" style="border-left-color: var(--magenta);">{{ case.mutated_description }}</div>
                 
                 <div class="text-dim" style="font-size: 0.85em; margin-top: 12px;">
                     Dimension: <span class="text-white">{{ case.dimension_id }}</span> · 

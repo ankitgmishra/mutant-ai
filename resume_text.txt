@@ -1,0 +1,146 @@
+ANKIT G. MISHRA
+Mumbai, India |+91 8779693725 | ankitmishra.letter@gmail.com
+| github.com/ankitgmishra | aiankit.com | linkedin.com/in/ankitgmishra
+
+EDUCATION​
+University of Mumbai​
+Bachelor of Technology in Artificial Intelligence & Machine Learning​
+GPA: 3.5 / 4
+MSBTE​
+Diploma in Computer Science Engineering
+Percentage: 87%​
+
+Mumbai, India
+2022- 2025
+Thane, India
+2019 – 2022
+
+WORK EXPERIENCE​
+DocuraHealth (YC W26)
+San Francisco, USA
+Founding AI Engineer
+Jan 2026 – June 2026
+●​ Built and improved a Planning Agent system for report generation workflows, orchestrating extraction
+planning, sample coordination, report preparation, and iterative refinement/replanning for failed or
+low-confidence outputs, reducing manual operational effort by ~50%.
+●​ Developed Verification Agent layers across multiple AI pipelines to validate extracted data and generated reports,
+reducing report inconsistencies and manual review/correction workload by ~40% for operations teams.
+●​ Worked on Context Handling systems to improve reasoning consistency and structured output reliability, leading to
+noticeably higher report quality and reduced regeneration cycles.
+●​ Optimized report generation and Review of Records (ROR) workflows using asynchronous processing and parallel
+execution strategies, decreasing processing latency by ~60% and significantly improving throughput for
+large-scale healthcare record handling.
+●​ Enhanced OCR and document extraction pipelines by improving prompt behavior, extraction orchestration, and
+validation logic, improving extraction accuracy and reducing downstream correction effort.
+●​ Integrated and onboarded new healthcare client workflows, ensuring generated outputs matched
+client-specific templates, formatting standards, and reporting requirements while reducing template
+adjustment/review effort by ~50%.
+●​ Worked on Phone Agent workflows capable of processing call/audio inputs and converting extracted information into
+structured healthcare forms, reducing manual form-filling effort for operational workflows.
+●​ Reverse engineered a proprietary .ds2 (Olympus CELP-based) audio format and built a custom decoding pipeline
+(DS2 → WAV → OGG Opus) to enable accurate transcription using Deepgram/Whisper, overcoming lack of native
+FFmpeg support
+●​ Led end-to-end development of AI infrastructure, workflow automation systems, frontend upload/review flows, and
+production healthcare AI pipelines as the primary engineer.
+●​ Tech Stack: Python, Next.js, FastAPI, Docker, LlamaIndex, Deepgram , Whisper, AWS,AWS Textract, DataLab
+OCR, Multi-Agent Systems, Voice AI Agents, Prompt Engineering, AI Verification Systems.
+Pibit.ai (YC W21) Series-A​
+Bangalore, India
+Machine Learning Engineer
+June 2025 – Dec 2025
+●​ Automated Workflows: Developed a Python-based comparison script leveraging pandas and openpyxl
+to automate validation of our product between ground truth and model output, enabling the Quality
+Assurance and Operations teams to reduce manual review time by ~70%. The script flags discrepancies
+and critical issues in red, producing instantly actionable reports.
+●​ Prompt Engineering for Extraction Accuracy: Significantly enhanced the performance of the Exmod
+LLM system by refining prompts and testing response behavior using Langfuse, leading to a ~25%
+improvement in document-extraction accuracy and reliability.
+●​ Resolved Data Contamination issues: Identified and fixed contamination and misalignment issues in
+various Documents, improving data integrity and downstream extraction performance.
+●​ Optimized Supplemental Document Processing: Improved prompt reliability and backend processing
+logic, increasing the extraction precision of supplemental documents and saving the team ~40% of manual
+QA and correction time.
+
+●​ Collaborated with cross-functional engineering teams to develop the Piparse package, standardizing
+shared document ingestion, preprocessing, and extraction workflows across multiple client pipeline
+●​ Contributing to the design and development of a prompt management system to centralize prompt versioning,
+experimentation for large-scale LLM workflows.
+
+●​ Tech Stack: Python, Langchain, LangGraph, Pandas, FastAPI, Openpyxl, Prompt Engineering, Langfuse, AWS S3,
+AWS CloudWatch
+AAROGYA ID​
+Hyderabad, India
+Founding AI Engineer
+Jan 2025 – May 2025
+●​ Designed and evaluated a medical question-answering system by testing and benchmarking multiple large
+language models (Claude Sonnet 3.5, OpenBioLLM, Meditron), selecting the most accurate and contextually
+relevant output patterns for production use.
+●​ Prompt Engineering for Document Digitization: Engineered and optimized prompts for AWS Textract and
+Claude 3.5, leading to a ~40% reduction in extraction errors during medical document digitization workflows.
+●​ LLM Integration at Scale: Integrated Gemini Flash 2.0 into the backend digitization pipeline, significantly
+improving parsing performance and boosting throughput by ~60% on large PDF files.​
+End-to-End Backend Integration: Led the full backend integration of Gemini Flash 2, handling complex API
+responses using AWS Lambda, Bedrock, and CloudWatch to monitor and scale system behavior.
+●​ Cost Efficient Infrastructure Refactoring: Migrated backend storage from AWS RDS to DynamoDB,
+achieving a notable reduction in storage costs while maintaining query performance.
+●​ Secure API Deployment: Designed and deployed RESTful APIs via AWS API Gateway, ensuring scalable and
+secure access to digitization services.
+●​ Technical Documentation & Evaluation Reports: Authored comprehensive documentation for the system’s
+architecture, LLM evaluation protocols, API structure, and workflow automation to ensure smooth handoff and
+maintainability.
+●​ Tech Stack: Claude Sonnet 3.5, OpenBioLLM, Meditron, Gemini Flash 2, AWS Lambda, AWS Bedrock, AWS
+CloudWatch, AWS API Gateway, AWS Textract, AWS RDS, DynamoDB, FastAPI, React.js ,Prompt Engineering,
+REST APIs,
+ADDITIONAL EXPERIENCE ( Internships / Part time ) ​
+Machine Learning Engineer | Software Engineer | Python Instructor
+
+​
+India
+Nov 2022 – Aug 2024
+
+●​ Worked across 𝟱 𝘀𝘁𝗮𝗿𝘁𝘂𝗽𝘀 + 𝟭 𝗼𝗽𝗲𝗻-𝘀𝗼𝘂𝗿𝗰𝗲 𝗼𝗿𝗴𝗮𝗻𝗶𝘇𝗮𝘁𝗶𝗼𝗻 (part-time/intern): Verbient Technologies, Shoziki Infotech,
+HomeZing, TCET Open Source, Homestogether, and Universe Simplified.
+●​ Independently built and deployed CMS platforms and full-stack web applications, managing frontend, backend,
+deployment, and SEO optimization across multiple startup projects.
+●​ Led end-to-end feature development and technical execution for client and internal projects, taking ownership from
+development to deployment in fast-paced startup environments.
+●​ Developed Statistical ML-powered tools, recommendation systems, and automation-focused solutions to improve
+personalization, workflow efficiency, and data-driven decision making.
+●​ Worked on RAG-based chatbot systems and AI-powered product features using LLM workflows to enhance user
+engagement, contextual search, and information retrieval pipelines.
+●​ Contributed to backend engineering, API integrations, client-side validation systems, and business logic implementation
+for scalable web applications.
+●​ Deployed and managed applications on AWS EC2 environments while handling production-level debugging, updates, and
+optimization workflows.
+●​ Collaborated with cross-functional teams, founders, and developers while also taking independent ownership of critical
+engineering tasks and deliverables.
+●​ Mentored and taught Python programming at Universe Simplified, helping university students and teaching professionals
+understand programming fundamentals and practical software development concepts.
+●​ Tech Stack: Langchain, GPT 4.1 , Scikit Learn, NLTK, BeautifulSoup4, Selenium, Python , Flask , Django,
+React, PHP , Javascript , SQL, Xampp, Git, Github, AWS Ec2 Windows,
+
+PROJECTS​
+Projects :
+
+India, Nov 2022 - Present
+
+●​ Mutant-AI Visit: mutant-ai
+Developed an open-source Python library for LLM evaluation, dataset generation, and red teaming for AI agents and
+RAG systems.
+Mutate Engine: Automatically expands existing evaluation datasets by generating behavioral variations across multiple
+dimensions (Emotion, Angry, Frustrated , Prompt Injection, Social Engineering, Context-Manipulation, etc.), enabling
+broader and more comprehensive evaluation coverage.
+Red Team Engine: Executes automated adversarial attacks against LLMs and AI agents—including prompt injection,
+jailbreak, instruction-conflict, context-poisoning, and other attack strategies—to identify vulnerabilities, evaluate security
+posture, and improve application robustness.
+●​ Visit My Website For More Projects - Project Section
+
+TECHNICAL SKILLS​
+Frameworks: HuggingFace, LangGraph, Langchain, LlamaIndex,Tensorflow, Scikit Learn, PyTorch, Keras, Numpy, Pandas,
+NLTK, Spacy, Flask, FastAPI, Crew AI, PhiData, PydanticAI, Next.js, Vapi
+Tools: Git, Github Actions, ArgoCD, HELM, DVC, MLflow, Postman, DataStax, Unsloth, pgAdmin4, Claude Code
+Databases: MySQL, MongoDB (Familiar), VectorDatabases
+Infrastructure & Cloud: Langfuse, Langsmith, Docker, Kubernetes, AWS EKS, AWS Bedrock, AWS Lambda, AWS S3
+Bucket, AWS Ec2, AWS RDS, AWS CloudWatch
+
+

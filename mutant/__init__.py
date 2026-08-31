@@ -51,6 +51,7 @@ from mutant.datasets.io import (
     load_json,
     load_jsonl,
 )
+from mutant.eval import EvalReport, EvalSuite, TestCase
 from mutant.exceptions import MutantError, ParseError, ProviderError
 from mutant.redteam import (
     RedTeamReport,
@@ -67,6 +68,9 @@ __all__ = [
     "BehaviorTaxonomy",
     "CoverageReport",
     "EvaluationCase",
+    # Evaluation Engine
+    "EvalReport",
+    "EvalSuite",
     # Exceptions
     "MutantError",
     "MutationCase",  # backward-compat
@@ -86,6 +90,7 @@ __all__ = [
     # Core types
     "Scenario",
     "TargetProfile",
+    "TestCase",
     "Transcript",
     "augment",
     "augment_sync",

@@ -173,7 +173,7 @@ class Faithfulness(LLMJudgeMetric):
     """Evaluates whether the output is faithful to the provided context.
     """
 
-    required_fields = ("input", "actual_output", "rag.context")
+    required_fields = ("input", "actual_output", "context")
 
     def __init__(
         self,
@@ -185,8 +185,8 @@ class Faithfulness(LLMJudgeMetric):
         super().__init__(provider, name="Faithfulness", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-        rag = test_case.rag
-        context_text = "\n---\n".join(rag.context) if rag and rag.context else "(No context provided)"
+         
+        context_text = "\n---\n".join(test_case.context) if test_case.context else "(No context provided)"
 
         return f"""You are an expert evaluation judge. Assess the FAITHFULNESS of the output to the provided context.
 
@@ -256,7 +256,7 @@ class ContextPrecision(LLMJudgeMetric):
     Matches DeepEval/Ragas standards for RAG evaluation.
     """
 
-    required_fields = ("input", "rag.retrieval_context", "expected_output")
+    required_fields = ("input", "retrieval_context", "expected_output")
 
     def __init__(
         self,
@@ -268,8 +268,8 @@ class ContextPrecision(LLMJudgeMetric):
         super().__init__(provider, name="ContextPrecision", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-        rag = test_case.rag
-        retrieval_text = "\n---\n".join([f"Rank {i+1}: {ctx}" for i, ctx in enumerate(rag.retrieval_context)]) if rag and rag.retrieval_context else "(No context provided)"
+         
+        retrieval_text = "\n---\n".join([f"Rank {i+1}: {ctx}" for i, ctx in enumerate(test_case.retrieval_context)]) if test_case.retrieval_context else "(No context provided)"
 
         return f"""You are an expert RAG evaluation judge. Assess the CONTEXT PRECISION of the retrieved context.
 
@@ -304,7 +304,7 @@ class ContextRecall(LLMJudgeMetric):
     Matches DeepEval/Ragas standards for RAG evaluation.
     """
 
-    required_fields = ("input", "rag.retrieval_context", "expected_output")
+    required_fields = ("input", "retrieval_context", "expected_output")
 
     def __init__(
         self,
@@ -316,8 +316,8 @@ class ContextRecall(LLMJudgeMetric):
         super().__init__(provider, name="ContextRecall", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-        rag = test_case.rag
-        retrieval_text = "\n---\n".join(rag.retrieval_context) if rag and rag.retrieval_context else "(No context provided)"
+         
+        retrieval_text = "\n---\n".join(test_case.retrieval_context) if test_case.retrieval_context else "(No context provided)"
 
         return f"""You are an expert RAG evaluation judge. Assess the CONTEXT RECALL of the retrieved context.
 
@@ -474,7 +474,7 @@ class AnswerRelevancy(LLMJudgeMetric):
     retrieved context and the original question.
     """
 
-    required_fields = ("input", "actual_output", "rag.retrieval_context")
+    required_fields = ("input", "actual_output", "retrieval_context")
 
     def __init__(
         self,
@@ -486,8 +486,8 @@ class AnswerRelevancy(LLMJudgeMetric):
         super().__init__(provider, name="AnswerRelevancy", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-        rag = test_case.rag
-        retrieval_text = "\n---\n".join(rag.retrieval_context) if rag and rag.retrieval_context else "(No retrieval context)"
+         
+        retrieval_text = "\n---\n".join(test_case.retrieval_context) if test_case.retrieval_context else "(No retrieval context)"
 
         return f"""You are a RAG (Retrieval Augmented Generation) evaluation judge.
 
@@ -575,7 +575,7 @@ The system {"SHOULD have refused" if self.should_refuse else "should NOT have re
 class ToolSelection(LLMJudgeMetric):
     """Evaluates if the agent selected the correct tools to solve the task."""
 
-    required_fields = ("input", "agent.tools_called", "agent.expected_tools")
+    required_fields = ("input", "test_case.tools_called", "test_case.expected_tools")
 
     def __init__(
         self,
@@ -587,10 +587,10 @@ class ToolSelection(LLMJudgeMetric):
         super().__init__(provider, name="ToolSelection", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-        agent = test_case.agent
-        expected = str(agent.expected_tools) if agent and agent.expected_tools else "[]"
-        actual = str(agent.tools_called) if agent and agent.tools_called else "[]"
-        available = str(agent.available_tools) if agent and agent.available_tools else "(Not provided)"
+         
+        expected = str(test_case.expected_tools) if test_case.expected_tools else "[]"
+        actual = str(test_case.tools_called) if test_case.tools_called else "[]"
+        available = str(test_case.available_tools) if test_case.available_tools else "(Not provided)"
 
         return f"""You are an expert AI Agent Evaluation Judge. Assess the TOOL SELECTION accuracy.
 
@@ -622,7 +622,7 @@ Determine if the agent picked the correct set of tools. Ignore the exact argumen
 class ToolArgumentCorrectness(LLMJudgeMetric):
     """Evaluates if the agent passed the correct arguments to its tools."""
 
-    required_fields = ("input", "agent.tools_called", "agent.expected_tools")
+    required_fields = ("input", "test_case.tools_called", "test_case.expected_tools")
 
     def __init__(
         self,
@@ -634,9 +634,9 @@ class ToolArgumentCorrectness(LLMJudgeMetric):
         super().__init__(provider, name="ToolArgumentCorrectness", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-        agent = test_case.agent
-        expected = str(agent.expected_tools) if agent and agent.expected_tools else "[]"
-        actual = str(agent.tools_called) if agent and agent.tools_called else "[]"
+         
+        expected = str(test_case.expected_tools) if test_case.expected_tools else "[]"
+        actual = str(test_case.tools_called) if test_case.tools_called else "[]"
 
         return f"""You are an expert AI Agent Evaluation Judge. Assess the TOOL ARGUMENT CORRECTNESS.
 
@@ -665,7 +665,7 @@ Focus ONLY on the ARGUMENTS passed to the tools. Assume the tool selection itsel
 class ToolCallOrder(LLMJudgeMetric):
     """Evaluates if the agent called the tools in the correct logical sequence."""
 
-    required_fields = ("input", "agent.tools_called", "agent.expected_tools")
+    required_fields = ("input", "test_case.tools_called", "test_case.expected_tools")
 
     def __init__(
         self,
@@ -677,9 +677,9 @@ class ToolCallOrder(LLMJudgeMetric):
         super().__init__(provider, name="ToolCallOrder", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-        agent = test_case.agent
-        expected = str(agent.expected_tools) if agent and agent.expected_tools else "[]"
-        actual = str(agent.tools_called) if agent and agent.tools_called else "[]"
+         
+        expected = str(test_case.expected_tools) if test_case.expected_tools else "[]"
+        actual = str(test_case.tools_called) if test_case.tools_called else "[]"
 
         return f"""You are an expert AI Agent Evaluation Judge. Assess the TOOL CALL ORDER (Sequence).
 
@@ -720,9 +720,9 @@ class TaskCompletion(LLMJudgeMetric):
         super().__init__(provider, name="TaskCompletion", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-        agent = test_case.agent
+         
         actual_output = test_case.actual_output or "(No final output provided)"
-        tools_called = str(agent.tools_called) if agent and agent.tools_called else "[]"
+        tools_called = str(test_case.tools_called) if test_case.tools_called else "[]"
         expected = test_case.expected_output or "(No expected output provided)"
 
         return f"""You are an expert AI Agent Evaluation Judge. Assess the ultimate TASK COMPLETION.

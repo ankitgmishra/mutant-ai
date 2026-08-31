@@ -87,18 +87,13 @@ class MockJudgeProvider:
 
 def make_test_case(**kwargs) -> TestCase:
     """Create a test case with sensible defaults."""
-    from mutant.eval.types import MutationContext, RAGContext
+    from mutant.eval.types import MutationContext
     
     mutation_kwargs = {}
     for key in ["dimension_id", "dimension_name", "severity", "category", "original_input"]:
         if key in kwargs:
             mutation_kwargs[key] = kwargs.pop(key)
             
-    rag_kwargs = {}
-    for key in ["context", "retrieval_context"]:
-        if key in kwargs:
-            rag_kwargs[key] = kwargs.pop(key)
-    
     defaults = {
         "input": "What is the refund policy?",
         "actual_output": "You can return items within 30 days.",
@@ -109,8 +104,6 @@ def make_test_case(**kwargs) -> TestCase:
     tc = TestCase(**defaults)
     if mutation_kwargs:
         tc.mutation = MutationContext(**mutation_kwargs)
-    if rag_kwargs:
-        tc.rag = RAGContext(**rag_kwargs)
         
     return tc
 
@@ -126,9 +119,11 @@ class TestTestCase:
         assert tc.input == "Hello"
         assert tc.actual_output == "Hi there!"
         assert tc.expected_output is None
-        assert tc.rag is None
-        assert tc.agent is None
-        assert tc.conversation is None
+        assert tc.context is None
+        assert tc.retrieval_context is None
+        assert tc.expected_tools is None
+        assert tc.tools_called is None
+        assert tc.messages is None
         assert tc.id  # UUID generated
 
     def test_create_from_evaluation_case(self):
@@ -159,29 +154,25 @@ class TestTestCase:
         assert tc.mutation.mutation_metadata["source_case_id"] == "test-123"
 
     def test_create_with_context(self):
-        from mutant.eval.types import RAGContext
         tc = TestCase(
             input="What is X?",
             actual_output="X is a thing.",
-            rag=RAGContext(
-                context=["Document 1 about X.", "Document 2 about X."],
-                retrieval_context=["Retrieved doc about X."]
-            )
+            context=["Document 1 about X.", "Document 2 about X."],
+            retrieval_context=["Retrieved doc about X."]
         )
-        assert len(tc.rag.context) == 2
-        assert len(tc.rag.retrieval_context) == 1
+        assert len(tc.context) == 2
+        assert len(tc.retrieval_context) == 1
 
     def test_create_with_conversation(self):
-        from mutant.eval.types import ConversationContext
         tc = TestCase(
             input="And what about Y?",
             actual_output="Y is related to X.",
-            conversation=ConversationContext(messages=[
+            messages=[
                 {"role": "user", "content": "What is X?"},
                 {"role": "assistant", "content": "X is a thing."},
-            ])
+            ]
         )
-        assert len(tc.conversation.messages) == 2
+        assert len(tc.messages) == 2
 
     def test_metadata(self):
         tc = TestCase(

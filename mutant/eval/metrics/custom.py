@@ -82,9 +82,9 @@ class CustomRubric(LLMJudgeMetric):
 - 0.0 = Completely fails all criteria"""
 
         context_section = ""
-        rag = test_case.rag
-        if rag and rag.context:
-            context_text = "\n---\n".join(rag.context)
+         
+        if test_case.context:
+            context_text = "\n---\n".join(test_case.context)
             context_section = f"\n## Context\n{context_text}\n"
 
         expected_section = ""
@@ -171,11 +171,11 @@ class CustomLLMMetric(LLMJudgeMetric):
             input=test_case.input,
             actual_output=test_case.actual_output or "",
             expected_output=test_case.expected_output or "",
-            context=test_case.rag.context if test_case.rag else [],
-            retrieval_context=test_case.rag.retrieval_context if test_case.rag else [],
+            context=test_case.context if test_case.context else [],
+            retrieval_context=test_case.retrieval_context if test_case.retrieval_context else [],
             metadata=test_case.metadata,
-            conversation=test_case.conversation,
-            agent=test_case.agent,
+            messages=test_case.messages,
+            tools_called=test_case.tools_called, expected_tools=test_case.expected_tools,
         )
 
 

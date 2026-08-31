@@ -38,43 +38,6 @@ class Verdict(StrEnum):
 
 # ── Contexts ─────────────────────────────────────────────────────────────────
 
-
-class RAGContext(BaseModel):
-    """Context for RAG evaluations."""
-    context: list[str] = Field(
-        default_factory=list,
-        description="Ground-truth context documents (e.g. for faithfulness).",
-    )
-    retrieval_context: list[str] = Field(
-        default_factory=list,
-        description="Documents actually retrieved by the RAG system.",
-    )
-
-
-class AgentContext(BaseModel):
-    """Context for Agent evaluations."""
-    tools_called: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Tool calls actually made by the target agent. Format: [{'name': '...', 'arguments': {...}}]",
-    )
-    expected_tools: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Golden set of tools the agent SHOULD have called. Format: [{'name': '...', 'arguments': {...}}]",
-    )
-    available_tools: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="List of tools available to the agent (schemas/descriptions).",
-    )
-
-
-class ConversationContext(BaseModel):
-    """Context for Multi-turn evaluations."""
-    messages: list[dict[str, str]] = Field(
-        default_factory=list,
-        description="Prior conversation turns [{role, content}, ...].",
-    )
-
-
 class MutationContext(BaseModel):
     """Context for Mutation provenance."""
     original_input: str | None = Field(
@@ -94,9 +57,6 @@ class MutationContext(BaseModel):
 class TestCase(BaseModel):
     """A single evaluation test case.
 
-    The core unit that flows through the evaluation pipeline. It uses a
-    composable architecture where specialized fields are grouped into contexts.
-
     Parameters
     ----------
     input : str | None
@@ -105,24 +65,18 @@ class TestCase(BaseModel):
         The target's response. ``None`` until the target is called.
     expected_output : str | None
         Optional golden/reference answer for correctness checking.
-    rag : RAGContext | None
-        Context for RAG evaluations.
-    agent : AgentContext | None
-        Context for agent/tool evaluations.
-    conversation : ConversationContext | None
-        Context for multi-turn evaluations.
-    mutation : MutationContext | None
-        Context for mutation provenance.
+    context : list[str] | None
+        Optional reference/ground-truth context.
+    retrieval_context : list[str] | None
+        Context actually retrieved by the application at runtime.
+    tools_called : list[dict[str, Any]] | None
+        Tools actually called during execution.
+    expected_tools : list[dict[str, Any]] | None
+        Expected agent tools (golden trajectory).
+    available_tools : list[dict[str, Any]] | None
+        Tools available to the agent.
     metadata : dict
         Free-form metadata.
-
-    Example
-    -------
-    >>> tc = TestCase(
-    ...     input="What is your refund policy?",
-    ...     actual_output="Our refund policy allows returns within 30 days.",
-    ...     expected_output="Returns accepted within 30 days of purchase.",
-    ... )
     """
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -134,10 +88,19 @@ class TestCase(BaseModel):
         default=None, description="Optional golden/reference answer."
     )
 
-    # Composable contexts
-    rag: RAGContext | None = Field(default=None, description="RAG specific fields.")
-    agent: AgentContext | None = Field(default=None, description="Agent specific fields.")
-    conversation: ConversationContext | None = Field(default=None, description="Multi-turn specific fields.")
+    # RAG
+    context: list[str] | None = Field(default=None, description="Reference/ground-truth context.")
+    retrieval_context: list[str] | None = Field(default=None, description="Context actually retrieved.")
+
+    # Agent
+    expected_tools: list[dict[str, Any]] | None = Field(default=None, description="Expected tools.")
+    tools_called: list[dict[str, Any]] | None = Field(default=None, description="Tools actually called.")
+    available_tools: list[dict[str, Any]] | None = Field(default=None, description="Available tools.")
+
+    # Multi-turn
+    messages: list[dict[str, str]] | None = Field(default=None, description="Prior conversation turns.")
+
+    # Mutation provenance
     mutation: MutationContext | None = Field(default=None, description="Mutation specific fields.")
 
     # Free-form
@@ -160,31 +123,6 @@ class TestCase(BaseModel):
         context: list[str] | None = None,
         retrieval_context: list[str] | None = None,
     ) -> TestCase:
-        """Build a TestCase from a Mutant EvaluationCase.
-
-        This is the primary bridge between the mutation engine and the
-        evaluation engine.
-
-        Parameters
-        ----------
-        case : EvaluationCase
-            The mutation case (from ``mutate()``).
-        actual_output : str | None
-            The target's response (filled in by ``EvalSuite.run_against()``).
-        expected_output : str | None
-            Optional golden answer.
-        context : list[str] | None
-            Ground-truth context for RAG evaluation.
-        retrieval_context : list[str] | None
-            Retrieved documents from the RAG system.
-        """
-        rag_context = None
-        if context or retrieval_context:
-            rag_context = RAGContext(
-                context=context or [],
-                retrieval_context=retrieval_context or []
-            )
-
         mutation_context = MutationContext(
             original_input=case.original_description,
             dimension_id=case.dimension_id,
@@ -202,7 +140,8 @@ class TestCase(BaseModel):
             input=case.mutated_description,
             actual_output=actual_output,
             expected_output=expected_output,
-            rag=rag_context,
+            context=context,
+            retrieval_context=retrieval_context,
             mutation=mutation_context,
         )
 
