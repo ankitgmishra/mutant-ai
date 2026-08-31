@@ -236,7 +236,6 @@ class EvalReport(BaseModel):
         from rich import box
         from rich.console import Console
         from rich.panel import Panel
-        from rich.table import Table
         from rich.text import Text
 
         console = Console()
@@ -244,8 +243,7 @@ class EvalReport(BaseModel):
 
         # ── Header ───────────────────────────────────────────────────────
         header = Text.from_markup(
-            "[bold cyan]MUTANT EVALUATION REPORT[/bold cyan]\n"
-            "[dim]Mutation-Driven Quality Assessment[/dim]"
+            "[bold cyan]MUTANT EVALUATION REPORT[/bold cyan]"
         )
         console.print(
             Panel(header, box=box.DOUBLE, border_style="cyan", padding=(1, 4)),
@@ -254,98 +252,67 @@ class EvalReport(BaseModel):
         console.print()
 
         # ── Overview ─────────────────────────────────────────────────────
-        pass_color = "green" if self.overall_pass_rate >= 0.8 else (
-            "yellow" if self.overall_pass_rate >= 0.5 else "red"
-        )
-        console.print(f"  [dim]Total Cases:[/dim]    [bold white]{self.total_cases}[/bold white]")
-        console.print(f"  [dim]Passed:[/dim]          [bold green]{self.total_passed}[/bold green]")
-        console.print(f"  [dim]Failed:[/dim]          [bold red]{self.total_failed}[/bold red]")
-        console.print(f"  [dim]Pass Rate:[/dim]       [{pass_color} bold]{self.overall_pass_rate:.0%}[/{pass_color} bold]")
-        console.print(f"  [dim]Avg Score:[/dim]       [bold white]{self.overall_avg_score:.3f}[/bold white]")
-        console.print(f"  [dim]Duration:[/dim]        [white]{self.duration_seconds:.1f}s[/white]")
+        pass_color = "green" if self.overall_pass_rate >= 0.8 else ("yellow" if self.overall_pass_rate >= 0.5 else "red")
+        console.print(f"Cases:      [bold white]{self.total_cases}[/bold white]")
+        console.print(f"Passed:     [bold green]{self.total_passed}[/bold green]")
+        console.print(f"Failed:     [bold red]{self.total_failed}[/bold red]")
+        console.print(f"Pass Rate:  [{pass_color} bold]{self.overall_pass_rate:.0%}[/{pass_color} bold]")
         console.print()
 
         # ── Metric Breakdown ─────────────────────────────────────────────
         if self.metric_summaries:
-            console.rule("[bold cyan]METRIC BREAKDOWN[/bold cyan]", style="cyan")
+            console.rule("[bold cyan]METRIC RESULTS[/bold cyan]", style="cyan")
             console.print()
-
-            table = Table(box=box.SIMPLE_HEAD, show_edge=False)
-            table.add_column("Metric", style="bold white")
-            table.add_column("Avg Score", justify="center")
-            table.add_column("Pass Rate", justify="center")
-            table.add_column("Passed", justify="center", style="green")
-            table.add_column("Failed", justify="center", style="red")
-            table.add_column("Errors", justify="center", style="yellow")
 
             for ms in self.metric_summaries:
-                pr_color = "green" if ms.pass_rate >= 0.8 else (
-                    "yellow" if ms.pass_rate >= 0.5 else "red"
-                )
-                table.add_row(
-                    ms.name,
-                    f"{ms.avg_score:.3f}",
-                    f"[{pr_color}]{ms.pass_rate:.0%}[/{pr_color}]",
-                    str(ms.total_passed),
-                    str(ms.total_failed),
-                    str(ms.total_errors),
-                )
-            console.print(table)
+                pr_color = "green" if ms.pass_rate >= 0.8 else ("yellow" if ms.pass_rate >= 0.5 else "red")
+                status_icon = "✓" if ms.pass_rate == 1.0 else ("✗" if ms.pass_rate == 0.0 else "~")
+                status_text = "PASS" if ms.pass_rate == 1.0 else ("FAIL" if ms.pass_rate == 0.0 else "PARTIAL")
+
+                console.print(f"[bold]{ms.name}[/bold]")
+                console.print(f"  Score:      {ms.avg_score:.2f}")
+                
+                # Fetch threshold from a representative result
+                threshold = 0.8  # fallback
+                for r in self.results:
+                    if ms.name in r.metric_results:
+                        threshold = r.metric_results[ms.name].threshold
+                        break
+                console.print(f"  Threshold:  {threshold:.2f}")
+                console.print(f"  Status:     [{pr_color}]{status_icon} {status_text}[/{pr_color}]")
+                console.print()
+
+        # ── Failed Cases ─────────────────────────────────────────────────
+        failed = self.failed_results
+        if failed:
+            console.rule("[bold red]FAILED CASES[/bold red]", style="red")
             console.print()
+            for i, result in enumerate(failed, 1):
+                console.print(f"[bold red]Test Case #{i}[/bold red]")
+                console.print(f"  [dim]Input:[/dim] {result.test_case.input}")
+                console.print()
+                
+                for metric_name, mr in result.metric_results.items():
+                    if not mr.passed:
+                        console.print(f"  [bold]{metric_name}[/bold]")
+                        console.print(f"    Score:      [red]{mr.score:.2f}[/red]")
+                        console.print(f"    Threshold:  {mr.threshold:.2f}")
+                        status_str = "ERROR" if mr.verdict == "error" else "FAIL"
+                        console.print(f"    Status:     [red]✗ {status_str}[/red]")
+                        console.print()
+                        console.print(f"    Reason:")
+                        import textwrap
+                        reason_wrapped = textwrap.fill(mr.reason, width=60, initial_indent="    ", subsequent_indent="    ")
+                        console.print(f"[dim]{reason_wrapped}[/dim]")
+                        console.print()
+                console.rule(style="dim")
 
-        # ── Dimension Breakdown (Mutant-specific) ────────────────────────
-        dim_breaks = self.dimension_breakdowns
-        if dim_breaks and dim_breaks[0].dimension_id != "unknown":
-            console.rule("[bold cyan]DIMENSION VULNERABILITY MAP[/bold cyan]", style="cyan")
-            console.print()
-
-            table = Table(box=box.SIMPLE_HEAD, show_edge=False)
-            table.add_column("Dimension", style="bold white")
-            table.add_column("Cases", justify="center")
-            table.add_column("Avg Score", justify="center")
-            table.add_column("Pass Rate", justify="center")
-            table.add_column("Top Failing Metric", justify="center")
-
-            for db in dim_breaks:
-                pr_color = "green" if db.pass_rate >= 0.8 else (
-                    "yellow" if db.pass_rate >= 0.5 else "red"
-                )
-                top_fail = ""
-                if db.failed_metrics:
-                    top_fail = max(db.failed_metrics, key=db.failed_metrics.get)
-                    top_fail = f"[red]{top_fail} ({db.failed_metrics[top_fail]})[/red]"
-
-                table.add_row(
-                    db.dimension_name,
-                    str(db.total_cases),
-                    f"{db.avg_score:.3f}",
-                    f"[{pr_color}]{db.pass_rate:.0%}[/{pr_color}]",
-                    top_fail,
-                )
-            console.print(table)
-            console.print()
-
-        # ── Severity Breakdown ───────────────────────────────────────────
-        sev = self.severity_breakdown
-        if sev and "unknown" not in sev:
-            console.rule("[bold cyan]SEVERITY IMPACT[/bold cyan]", style="cyan")
-            console.print()
-
-            # Display in severity order
-            severity_order = ["critical", "high", "medium", "low"]
-            for s in severity_order:
-                if s in sev:
-                    d = sev[s]
-                    pr_color = "green" if d["pass_rate"] >= 0.8 else (
-                        "yellow" if d["pass_rate"] >= 0.5 else "red"
-                    )
-                    sev_color = {"critical": "red bold", "high": "red", "medium": "yellow", "low": "green"}.get(s, "white")
-                    console.print(
-                        f"  [{sev_color}]{s.upper():>10}[/{sev_color}]  "
-                        f"[{pr_color}]{d['pass_rate']:.0%}[/{pr_color}] pass rate  "
-                        f"({d['passed']}/{d['total']} passed)"
-                    )
-            console.print()
+        # ── Footer ───────────────────────────────────────────────────────
+        console.rule(style="cyan")
+        console.print()
+        console.print(f"Overall Score: [bold white]{self.overall_avg_score:.3f}[/bold white]")
+        console.print(f"Duration:      {self.duration_seconds:.1f}s")
+        console.print()
 
     # ── Summary ──────────────────────────────────────────────────────────────
 
