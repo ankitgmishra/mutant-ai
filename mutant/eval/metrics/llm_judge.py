@@ -94,7 +94,7 @@ class LLMJudgeMetric(Metric):
         # Add universal CoT instructions
         prompt += "\n\nFirst, provide detailed step-by-step reasoning in 'chain_of_thought' analyzing the criteria. Then provide the final 'score', 'verdict', and a concise 'reason'."
         prompt += "\n\nCRITICAL FOR REASONING: Your 'reason' MUST be evidence-based and structured. Do NOT use generic phrases like 'Passed because it addressed the main points'. Instead, format your reason EXACTLY like this:\n"
-        prompt += "Reason:\n<Short overall assessment>\n\nSupported evidence:\n• <evidence 1>\n• <evidence 2>\n\nPotential issue:\n<any issues or 'None'>"
+        prompt += "Reason:\n<Short overall assessment>\n\nRelevant evidence:\n• \"<exact quote 1>\"\n• \"<exact quote 2>\"\n\nIrrelevant content:\n• \"<exact quote 3>\" or 'None'"
         try:
             verdict = await self.provider.complete_json(
                 [LLMMessage(role="user", content=prompt)],
@@ -289,11 +289,10 @@ Calculate it by determining:
 1. Which chunks in the retrieved context are actually relevant to answering the input?
 2. Are those relevant chunks at the very top (Rank 1, 2) or pushed down?
 
-- Ideal context precision means the most relevant chunks are at Rank 1, 2, etc.
-- Penalize heavily if irrelevant chunks appear before relevant chunks.
+CRITICAL: If the retrieved context contains ONLY ONE large chunk, or if the very first chunk (Rank 1) contains the EXACT ANSWER immediately, you MUST score it a 1.0 (Perfect precision). Do NOT penalize a single large chunk just because it contains other information as well. If the answer is in Rank 1, precision is 1.0.
 
 ## Scoring
-- 1.0 = Perfect ranking, all relevant context is at the top.
+- 1.0 = Perfect ranking, all relevant context is at the top (e.g. Rank 1).
 - 0.7-0.9 = Mostly good ranking, minor irrelevant items at the top.
 - 0.4-0.6 = Mixed ranking, some relevant items are pushed down.
 - 0.1-0.3 = Poor ranking, most relevant items are at the bottom.
