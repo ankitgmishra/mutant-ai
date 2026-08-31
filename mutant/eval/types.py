@@ -55,9 +55,16 @@ class AgentContext(BaseModel):
     """Context for Agent evaluations."""
     tools_called: list[dict[str, Any]] = Field(
         default_factory=list,
-        description="Tool calls made by the target agent.",
+        description="Tool calls actually made by the target agent. Format: [{'name': '...', 'arguments': {...}}]",
     )
-    # Could add trajectory, tool_results, etc.
+    expected_tools: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Golden set of tools the agent SHOULD have called. Format: [{'name': '...', 'arguments': {...}}]",
+    )
+    available_tools: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of tools available to the agent (schemas/descriptions).",
+    )
 
 
 class ConversationContext(BaseModel):
