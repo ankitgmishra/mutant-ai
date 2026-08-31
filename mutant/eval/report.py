@@ -426,3 +426,71 @@ class EvalReport(BaseModel):
 
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
+
+    def to_html(self, path: str) -> None:
+        """Export report to a self-contained HTML file."""
+        html = [
+            "<!DOCTYPE html>",
+            "<html>",
+            "<head>",
+            "<meta charset='utf-8'>",
+            "<title>Mutant Evaluation Report</title>",
+            "<style>",
+            "body { font-family: -apple-system, system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; color: #333; }",
+            "table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }",
+            "th, td { border: 1px solid #e1e4e8; padding: 12px; text-align: left; }",
+            "th { background-color: #f6f8fa; }",
+            ".pass { color: #28a745; font-weight: bold; }",
+            ".fail { color: #d73a49; font-weight: bold; }",
+            ".metric-card { border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; margin-bottom: 16px; background: #fff; }",
+            ".case-header { font-weight: bold; font-size: 1.1em; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eaecef; }",
+            ".reason { background: #f6f8fa; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.9em; white-space: pre-wrap; margin-top: 8px; }",
+            "h1, h2, h3 { color: #24292e; border-bottom: 1px solid #eaecef; padding-bottom: 8px; }",
+            "</style>",
+            "</head>",
+            "<body>",
+            "<h1>🚀 Mutant Evaluation Report</h1>",
+            "<h2>Overview</h2>",
+            "<table>",
+            "<tr><th>Total Cases</th><th>Passed</th><th>Failed</th><th>Pass Rate</th><th>Avg Score</th><th>Duration</th></tr>",
+            f"<tr><td>{self.total_cases}</td><td class='pass'>{self.total_passed}</td><td class='fail'>{self.total_failed}</td>",
+            f"<td>{self.overall_pass_rate:.0%}</td><td>{self.overall_avg_score:.3f}</td><td>{self.duration_seconds:.1f}s</td></tr>",
+            "</table>",
+        ]
+
+        if self.metric_summaries:
+            html.extend([
+                "<h2>Metric Breakdown</h2>",
+                "<table>",
+                "<tr><th>Metric</th><th>Avg Score</th><th>Pass Rate</th><th>Passed</th><th>Failed</th></tr>"
+            ])
+            for ms in self.metric_summaries:
+                pr_class = "pass" if ms.pass_rate >= 0.8 else "fail"
+                html.append(f"<tr><td><strong>{ms.name}</strong></td><td>{ms.avg_score:.3f}</td>")
+                html.append(f"<td class='{pr_class}'>{ms.pass_rate:.0%}</td><td>{ms.total_passed}</td><td>{ms.total_failed}</td></tr>")
+            html.append("</table>")
+
+        failed = self.failed_results
+        if failed:
+            html.append("<h2>❌ Failed Cases Analysis</h2>")
+            for i, result in enumerate(failed, 1):
+                html.append(f"<div class='metric-card'>")
+                html.append(f"<div class='case-header'>Test Case #{i}</div>")
+                html.append(f"<p><strong>Input:</strong> <code>{result.test_case.input}</code></p>")
+                
+                html.append("<table>")
+                html.append("<tr><th>Failed Metric</th><th>Score</th><th>Threshold</th><th>Reason</th></tr>")
+                for metric_name, mr in result.metric_results.items():
+                    if not mr.passed:
+                        html.append(f"<tr>")
+                        html.append(f"<td><strong>{metric_name}</strong></td>")
+                        html.append(f"<td class='fail'>{mr.score:.2f}</td>")
+                        html.append(f"<td>{mr.threshold:.2f}</td>")
+                        html.append(f"<td><div class='reason'>{mr.reason}</div></td>")
+                        html.append(f"</tr>")
+                html.append("</table></div>")
+                
+        html.append("</body></html>")
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(html))
