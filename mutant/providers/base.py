@@ -135,16 +135,22 @@ class BaseLLMProvider(ABC):
         
         # Append JSON reminder to the last user message
         modified_messages = list(messages)
+        
+        schema_json = schema.model_json_schema()
+        # Improve JSON instruction to prevent small models from echoing the schema
+        reminder = (
+            "\n\nIMPORTANT: You must respond ONLY with a valid JSON object instance that strictly matches the following JSON Schema. "
+            "DO NOT output the schema itself. DO NOT wrap the JSON in markdown codeblocks if possible. "
+            "Your output must be parseable by json.loads().\n\n"
+            f"JSON Schema:\n{json.dumps(schema_json, indent=2)}"
+        )
+        
         if modified_messages and modified_messages[-1].role == "user":
-            schema_json = schema.model_json_schema()
-            reminder = f"\n\nYou must respond ONLY with a valid JSON object matching this schema:\n{json.dumps(schema_json, indent=2)}"
             modified_messages[-1] = LLMMessage(
                 role="user",
                 content=modified_messages[-1].content + reminder
             )
         elif modified_messages:
-            schema_json = schema.model_json_schema()
-            reminder = f"You must respond ONLY with a valid JSON object matching this schema:\n{json.dumps(schema_json, indent=2)}"
             modified_messages.append(LLMMessage(role="user", content=reminder))
 
         for _attempt in range(max_retries):
