@@ -142,7 +142,14 @@ class BaseLLMProvider(ABC):
             "\n\nIMPORTANT: You must respond ONLY with a valid JSON object instance that strictly matches the following JSON Schema. "
             "DO NOT output the schema itself. DO NOT wrap the JSON in markdown codeblocks if possible. "
             "Your output must be parseable by json.loads().\n\n"
-            f"JSON Schema:\n{json.dumps(schema_json, indent=2)}"
+            "Example of the CORRECT output format:\n"
+            "{\n"
+            '  "chain_of_thought": "First I analyzed X, then Y, therefore Z...",\n'
+            '  "score": 0.8,\n'
+            '  "verdict": "pass",\n'
+            '  "reason": "Passed because it addressed the main points."\n'
+            "}\n\n"
+            f"JSON Schema you must adhere to:\n{json.dumps(schema_json, indent=2)}"
         )
         
         if modified_messages and modified_messages[-1].role == "user":
