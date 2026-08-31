@@ -436,20 +436,22 @@ class EvalReport(BaseModel):
             "<meta charset='utf-8'>",
             "<title>Mutant Evaluation Report</title>",
             "<style>",
-            "body { font-family: -apple-system, system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; color: #333; }",
-            "table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }",
-            "th, td { border: 1px solid #e1e4e8; padding: 12px; text-align: left; }",
-            "th { background-color: #f6f8fa; }",
-            ".pass { color: #28a745; font-weight: bold; }",
-            ".fail { color: #d73a49; font-weight: bold; }",
-            ".metric-card { border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; margin-bottom: 16px; background: #fff; }",
-            ".case-header { font-weight: bold; font-size: 1.1em; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eaecef; }",
-            ".reason { background: #f6f8fa; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.9em; white-space: pre-wrap; margin-top: 8px; }",
-            "h1, h2, h3 { color: #24292e; border-bottom: 1px solid #eaecef; padding-bottom: 8px; }",
+            "body { font-family: -apple-system, system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background-color: #0d1117; color: #c9d1d9; }",
+            "table { border-collapse: collapse; width: 100%; margin-bottom: 30px; background-color: #161b22; }",
+            "th, td { border: 1px solid #30363d; padding: 12px; text-align: left; }",
+            "th { background-color: #21262d; color: #c9d1d9; }",
+            ".pass { color: #3fb950; font-weight: bold; }",
+            ".fail { color: #f85149; font-weight: bold; }",
+            ".metric-card { border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin-bottom: 24px; background: #161b22; }",
+            ".case-header { font-weight: bold; font-size: 1.2em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #30363d; color: #58a6ff; }",
+            ".section-title { font-weight: bold; margin-top: 12px; margin-bottom: 4px; color: #8b949e; }",
+            ".content-box { background: #0d1117; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.9em; white-space: pre-wrap; margin-top: 4px; border: 1px solid #30363d; color: #c9d1d9; }",
+            ".reason { background: #0d1117; padding: 10px; border-radius: 4px; font-size: 0.9em; white-space: pre-wrap; border: 1px solid #30363d; }",
+            "h1, h2, h3 { color: #c9d1d9; border-bottom: 1px solid #30363d; padding-bottom: 8px; }",
             "</style>",
             "</head>",
             "<body>",
-            "<h1>🚀 Mutant Evaluation Report</h1>",
+            "<h1>Mutant Evaluation Report</h1>",
             "<h2>Overview</h2>",
             "<table>",
             "<tr><th>Total Cases</th><th>Passed</th><th>Failed</th><th>Pass Rate</th><th>Avg Score</th><th>Duration</th></tr>",
@@ -470,25 +472,51 @@ class EvalReport(BaseModel):
                 html.append(f"<td class='{pr_class}'>{ms.pass_rate:.0%}</td><td>{ms.total_passed}</td><td>{ms.total_failed}</td></tr>")
             html.append("</table>")
 
-        failed = self.failed_results
-        if failed:
-            html.append("<h2>❌ Failed Cases Analysis</h2>")
-            for i, result in enumerate(failed, 1):
-                html.append(f"<div class='metric-card'>")
-                html.append(f"<div class='case-header'>Test Case #{i}</div>")
-                html.append(f"<p><strong>Input:</strong> <code>{result.test_case.input}</code></p>")
+        html.append("<h2>Evaluation Cases</h2>")
+        for i, result in enumerate(self.results, 1):
+            html.append(f"<div class='metric-card'>")
+            
+            # Header with pass/fail indicator
+            status_text = "PASS" if result.passed else "FAIL"
+            status_class = "pass" if result.passed else "fail"
+            html.append(f"<div class='case-header'>Test Case #{i} - <span class='{status_class}'>{status_text}</span></div>")
+            
+            # Input
+            html.append(f"<div class='section-title'>Input:</div>")
+            html.append(f"<div class='content-box'>{result.test_case.input}</div>")
+            
+            # Actual Output
+            if result.test_case.actual_output:
+                html.append(f"<div class='section-title'>Actual Output:</div>")
+                html.append(f"<div class='content-box'>{result.test_case.actual_output}</div>")
                 
-                html.append("<table>")
-                html.append("<tr><th>Failed Metric</th><th>Score</th><th>Threshold</th><th>Reason</th></tr>")
-                for metric_name, mr in result.metric_results.items():
-                    if not mr.passed:
-                        html.append(f"<tr>")
-                        html.append(f"<td><strong>{metric_name}</strong></td>")
-                        html.append(f"<td class='fail'>{mr.score:.2f}</td>")
-                        html.append(f"<td>{mr.threshold:.2f}</td>")
-                        html.append(f"<td><div class='reason'>{mr.reason}</div></td>")
-                        html.append(f"</tr>")
-                html.append("</table></div>")
+            # Expected Output
+            if result.test_case.expected_output:
+                html.append(f"<div class='section-title'>Expected Output:</div>")
+                html.append(f"<div class='content-box'>{result.test_case.expected_output}</div>")
+                
+            # Retrieval Context
+            if result.test_case.rag and result.test_case.rag.retrieval_context:
+                html.append(f"<div class='section-title'>Retrieval Context:</div>")
+                context_str = "\\n\\n".join(result.test_case.rag.retrieval_context)
+                html.append(f"<div class='content-box'>{context_str}</div>")
+                
+            html.append("<br>")
+            
+            # Metrics Table
+            html.append("<table>")
+            html.append("<tr><th>Metric</th><th>Score</th><th>Threshold</th><th>Status</th><th>Reason</th></tr>")
+            for metric_name, mr in result.metric_results.items():
+                m_status = "PASS" if mr.passed else "FAIL"
+                m_class = "pass" if mr.passed else "fail"
+                html.append(f"<tr>")
+                html.append(f"<td><strong>{metric_name}</strong></td>")
+                html.append(f"<td>{mr.score:.2f}</td>")
+                html.append(f"<td>{mr.threshold:.2f}</td>")
+                html.append(f"<td class='{m_class}'>{m_status}</td>")
+                html.append(f"<td><div class='reason'>{mr.reason}</div></td>")
+                html.append(f"</tr>")
+            html.append("</table></div>")
                 
         html.append("</body></html>")
 
