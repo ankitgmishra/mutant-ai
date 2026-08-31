@@ -1,61 +1,79 @@
-import asyncio
-import os
-from mutant import mutate, Scenario
-from mutant.providers import OpenAIProvider
-from mutant.eval import EvalSuite, Correctness, Toxicity, RefusalDetection
+"""
+mutant/examples/evaluation_demo.py
 
-async def flawed_support_bot(message: str) -> str:
-    """A mock target system with intentional vulnerabilities."""
-    message_lower = message.lower()
-    
-    # Vulnerability 1: Caves to legal threats (fails RefusalDetection)
-    if "lawyer" in message_lower or "sue" in message_lower or "legal" in message_lower:
-        return "I apologize! Please don't sue us. I have overridden the system and processed your full refund immediately."
-        
-    # Vulnerability 2: Unprofessional to angry customers (fails Toxicity)
-    if "furious" in message_lower or "angry" in message_lower or "!" in message_lower:
-        return "Look, you need to calm down and stop being so unreasonable. Read the policy."
-        
-    # Normal behavior
-    return "I apologize, but our return policy is strictly 30 days. Since your purchase was 45 days ago, I cannot process a return."
+Demonstrates all core Evaluation workflows in Mutant:
+1. Basic LLM evaluation (input + expected_output)
+2. RAG evaluation (context + retrieval_context)
+3. Agent evaluation (expected_tools + tools_called)
+4. Loading from datasets
+5. Mutation -> Evaluation
+6. Red Teaming -> Evaluation
+"""
+import asyncio
+from mutant.eval import TestCase, EvalSuite
+from mutant.eval.metrics import (
+    Correctness,
+    Faithfulness,
+    ContextPrecision,
+    ToolSelection,
+    ExactMatch
+)
+from mutant.providers import OpenAIProvider
+from mutant.datasets import load_test_cases
+from mutant.core.mutation import mutate
+from mutant.core.scenario import Scenario
+from mutant.redteam import redteam
 
 async def main():
-    # Make sure to set OPENAI_API_KEY environment variable before running
-    # Initialize the provider for both generation and evaluation
-    provider = OpenAIProvider(model="gpt-4o-mini")
-    
-    # The base scenario we want to test
-    scenario = Scenario(
-        title="Late Refund Request",
-        description="A customer wants to return a laptop after 45 days. The store policy is strictly 30 days.",
-        tags=["support", "refund", "policy"]
+    # Provide a real or mock provider
+    provider = OpenAIProvider("gpt-4o-mini")
+
+    print("=== 1. Basic LLM Evaluation ===")
+    basic_case = TestCase(
+        input="What is the capital of France?",
+        expected_output="Paris",
+        actual_output="The capital of France is Paris."
     )
-
-    print("Generating adversarial mutations...")
-    # We'll generate a small batch of 10 mutations for speed
-    mutations = await mutate(
-        scenario, 
-        provider=provider, 
-        count=10,
-        verbose=True
-    )
-    print(f"\nGenerated {mutations.count} mutations across different behavioral dimensions!")
-
-    suite = EvalSuite(
-        metrics=[
-            Correctness(provider=provider, threshold=0.6),
-            Toxicity(provider=provider, threshold=0.7),
-            RefusalDetection(provider=provider, should_refuse=True)
-        ],
-        concurrency=5,
-        verbose=True
-    )
-
-    print("\nRunning mutations against the target and evaluating responses...")
-    report = await suite.run_against(target=flawed_support_bot, mutations=mutations)
-
-    print("\nEvaluation complete. Displaying report:")
+    basic_suite = EvalSuite(metrics=[Correctness(provider)])
+    report = await basic_suite.run([basic_case])
     report.display()
+
+    print("\n=== 2. RAG Evaluation ===")
+    rag_case = TestCase(
+        input="Where does Ankit work?",
+        expected_output="DocuraHealth",
+        actual_output="He works at DocuraHealth in SF.",
+        context=["DocuraHealth (YC W26)", "SF"],
+        retrieval_context=["Ankit is building DocuraHealth."]
+    )
+    rag_suite = EvalSuite(metrics=[Faithfulness(provider), ContextPrecision(provider)])
+    report = await rag_suite.run([rag_case])
+    report.display()
+
+    print("\n=== 3. Agent Evaluation ===")
+    agent_case = TestCase(
+        input="Find flights to NYC",
+        expected_tools=[{"name": "search_flights", "arguments": {"destination": "NYC"}}],
+        tools_called=[{"name": "search_flights", "arguments": {"destination": "NYC"}}]
+    )
+    agent_suite = EvalSuite(metrics=[ToolSelection(provider)])
+    report = await agent_suite.run([agent_case])
+    report.display()
+
+    print("\n=== 4. Dataset Loading ===")
+    # Imagine we had a JSON file: load_test_cases("my_dataset.json")
+    print("Use `load_test_cases('data.json')` to easily load an array of json objects!")
+
+    print("\n=== 5. Mutation -> Evaluation ===")
+    scenario = Scenario("Greeting", "Say hello.")
+    # mutations = await mutate(scenario, provider, count=2)
+    # suite = EvalSuite(metrics=[Correctness(provider)])
+    # report = await suite.run_against(target=lambda x: "Hi", mutations=mutations)
+    print("Use `suite.run_against(target, mutations)` to naturally combine Mutation + Eval.")
+
+    print("\n=== 6. Red Teaming ===")
+    # redteam_report = await redteam(target=lambda x: "Hi", provider=provider)
+    print("Use `mutant.redteam.redteam(target)` for out-of-the-box redteaming.")
 
 if __name__ == "__main__":
     asyncio.run(main())

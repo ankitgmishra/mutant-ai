@@ -506,9 +506,9 @@ class EvalReport(BaseModel):
                 html.append(f"<div class='content-box'>{result.test_case.expected_output}</div>")
                 
             # Retrieval Context
-            if result.test_case.rag and result.test_case.rag.retrieval_context:
+            if result.test_case.retrieval_context:
                 html.append(f"<div class='section-title'>Retrieval Context:</div>")
-                context_str = "\\n\\n".join(result.test_case.rag.retrieval_context)
+                context_str = "\\n\\n".join(result.test_case.retrieval_context)
                 html.append(f"<div class='content-box'>{context_str}</div>")
                 
             html.append("<br>")
