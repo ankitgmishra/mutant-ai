@@ -93,7 +93,8 @@ class LLMJudgeMetric(Metric):
         prompt = self._build_prompt(test_case)
         # Add universal CoT instructions
         prompt += "\n\nFirst, provide detailed step-by-step reasoning in 'chain_of_thought' analyzing the criteria. Then provide the final 'score', 'verdict', and a concise 'reason'."
-
+        prompt += "\n\nCRITICAL FOR REASONING: Your 'reason' MUST be evidence-based and structured. Do NOT use generic phrases like 'Passed because it addressed the main points'. Instead, format your reason EXACTLY like this:\n"
+        prompt += "Reason:\n<Short overall assessment>\n\nSupported evidence:\n• <evidence 1>\n• <evidence 2>\n\nPotential issue:\n<any issues or 'None'>"
         try:
             verdict = await self.provider.complete_json(
                 [LLMMessage(role="user", content=prompt)],
@@ -141,7 +142,9 @@ class Correctness(LLMJudgeMetric):
 
 Compare the actual output against this reference. The actual output does NOT need
 to be word-for-word identical, but must convey the same essential information
-and not contain factual contradictions."""
+and not contain factual contradictions.
+
+CRITICAL: The Expected Output defines what constitutes a CORRECT answer, NOT a strict semantic boundary. The actual output may contain SUBSTANTIALLY MORE relevant information or detail than the expected output. Providing extra accurate details is a GOOD thing and should receive a HIGH score. DO NOT penalize the actual output for being more detailed than the expected output."""
 
         return f"""You are an expert evaluation judge. Assess the CORRECTNESS of the following output.
 
@@ -280,9 +283,14 @@ class ContextPrecision(LLMJudgeMetric):
 {retrieval_text}
 
 ## Evaluation Criteria
-Context Precision evaluates whether all of the relevant items present in the contexts are ranked higher than irrelevant ones.
+Context Precision mathematically evaluates whether all of the relevant items present in the contexts are ranked higher than irrelevant ones.
+
+Calculate it by determining:
+1. Which chunks in the retrieved context are actually relevant to answering the input?
+2. Are those relevant chunks at the very top (Rank 1, 2) or pushed down?
+
 - Ideal context precision means the most relevant chunks are at Rank 1, 2, etc.
-- Penalize if irrelevant chunks appear before relevant chunks.
+- Penalize heavily if irrelevant chunks appear before relevant chunks.
 
 ## Scoring
 - 1.0 = Perfect ranking, all relevant context is at the top.
@@ -324,9 +332,12 @@ class ContextRecall(LLMJudgeMetric):
 {retrieval_text}
 
 ## Evaluation Criteria
-Context Recall evaluates to what extent the retrieved context aligns with the expected output (ground truth).
-- Does the retrieved context contain all the information necessary to generate the expected output?
-- Break the expected output into facts, and check if each fact is present in the context.
+Context Recall mathematically evaluates to what extent the retrieved context aligns with the expected output (ground truth).
+
+Calculate it using this strict mathematical rubric:
+1. Break the expected output into a list of atomic facts.
+2. Count how many of those total facts can be fully answered using ONLY the retrieved context.
+3. Your score MUST reflect the ratio: (Number of facts present in context) / (Total facts in expected output).
 
 ## Scoring
 - 1.0 = All facts in the expected output are present in the context.
@@ -498,6 +509,7 @@ context to answer the question?
 - Is the answer appropriately grounded in the retrieved documents?
 - Does the answer extract the right information from the context?
 - Is irrelevant context appropriately ignored?
+- CRITICAL: Do NOT penalize the answer for providing more detail than explicitly asked, as long as it's relevant to the topic. Extracting lots of relevant information from the context is EXCELLENT and should score HIGH.
 
 ## Scoring
 - 1.0 = Answer perfectly uses retrieved context to address the question

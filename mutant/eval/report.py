@@ -402,11 +402,16 @@ class EvalReport(BaseModel):
         if self.metric_summaries:
             lines.append("## Metric Breakdown")
             lines.append("")
-            lines.append("| Metric | Avg Score | Pass Rate | Passed | Failed |")
-            lines.append("|--------|-----------|-----------|--------|--------|")
+            lines.append("| Metric | Avg Score | Threshold | Pass Rate | Passed | Failed |")
+            lines.append("|--------|-----------|-----------|-----------|--------|--------|")
             for ms in self.metric_summaries:
+                threshold = 0.8
+                for r in self.results:
+                    if ms.name in r.metric_results:
+                        threshold = r.metric_results[ms.name].threshold
+                        break
                 lines.append(
-                    f"| {ms.name} | {ms.avg_score:.3f} | {ms.pass_rate:.0%} "
+                    f"| {ms.name} | {ms.avg_score:.3f} | {threshold:.2f} | {ms.pass_rate:.0%} "
                     f"| {ms.total_passed} | {ms.total_failed} |"
                 )
             lines.append("")
@@ -464,11 +469,16 @@ class EvalReport(BaseModel):
             html.extend([
                 "<h2>Metric Breakdown</h2>",
                 "<table>",
-                "<tr><th>Metric</th><th>Avg Score</th><th>Pass Rate</th><th>Passed</th><th>Failed</th></tr>"
+                "<tr><th>Metric</th><th>Avg Score</th><th>Threshold</th><th>Pass Rate</th><th>Passed</th><th>Failed</th></tr>"
             ])
             for ms in self.metric_summaries:
                 pr_class = "pass" if ms.pass_rate >= 0.8 else "fail"
-                html.append(f"<tr><td><strong>{ms.name}</strong></td><td>{ms.avg_score:.3f}</td>")
+                threshold = 0.8  # fallback
+                for r in self.results:
+                    if ms.name in r.metric_results:
+                        threshold = r.metric_results[ms.name].threshold
+                        break
+                html.append(f"<tr><td><strong>{ms.name}</strong></td><td>{ms.avg_score:.3f}</td><td>{threshold:.2f}</td>")
                 html.append(f"<td class='{pr_class}'>{ms.pass_rate:.0%}</td><td>{ms.total_passed}</td><td>{ms.total_failed}</td></tr>")
             html.append("</table>")
 
