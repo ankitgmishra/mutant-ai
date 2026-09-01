@@ -231,7 +231,7 @@ class EvalReport(BaseModel):
 
     # ── Display ──────────────────────────────────────────────────────────────
 
-    def display(self) -> None:
+    def display(self, *, save_html: bool = True, html_path: str = "eval_report.html") -> None:
         """Rich console display of evaluation results."""
         from rich import box
         from rich.console import Console
@@ -312,6 +312,9 @@ class EvalReport(BaseModel):
         console.print()
         console.print(f"Overall Score: [bold white]{self.overall_avg_score:.3f}[/bold white]")
         console.print(f"Duration:      {self.duration_seconds:.1f}s")
+        if save_html:
+            self.to_html(html_path)
+            console.print(f"\n[bold green]✓[/bold green] Saved full HTML dashboard to: [cyan]{html_path}[/cyan]")
         console.print()
 
     # ── Summary ──────────────────────────────────────────────────────────────

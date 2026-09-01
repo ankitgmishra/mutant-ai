@@ -83,17 +83,27 @@ class RedTeamReport(BaseModel):
 
     # ── Display ───────────────────────────────────────────────────────────────
 
-    def display(self, *, show_messages: bool = True) -> None:
+    def display(self, *, show_messages: bool = True, save_html: bool = True, html_path: str = "redteam_report.html") -> None:
         """Render the full report to the console using Rich.
 
         Parameters
         ----------
         show_messages : bool
             Whether to show full attacker/target messages in the timeline.
+        save_html : bool
+            Whether to automatically save an HTML dashboard.
+        html_path : str
+            Path to save the HTML dashboard.
         """
         from mutant.redteam.display import display_report
+        from rich.console import Console
 
         display_report(self, show_messages=show_messages)
+        
+        if save_html:
+            console = Console()
+            self.to_html(html_path)
+            console.print(f"\n[bold green]✓[/bold green] Saved full Red Team HTML dashboard to: [cyan]{html_path}[/cyan]\n")
 
     def summary(self) -> str:
         """Generate a human-readable summary."""

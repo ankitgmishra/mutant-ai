@@ -279,6 +279,10 @@ class MutationResult(BaseModel):
                 filtered = [c for c in filtered if getattr(c, key, None) == value]
         return self.model_copy(update={"cases": filtered})
 
+    def display(self) -> None:
+        """Display the mutation report."""
+        self.explain(print_output=True)
+
     def explain(self, print_output: bool = True) -> None:
         """Print a structured explanation of the generation process and coverage."""
         if not print_output:
