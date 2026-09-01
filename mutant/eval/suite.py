@@ -320,3 +320,43 @@ class EvalSuite:
             "Pass a MutationResult, AugmentedDataset, list[TestCase], "
             "or list[EvaluationCase]."
         )
+
+async def evaluate(
+    test_cases: list[TestCase],
+    metrics: list[Metric],
+    *,
+    concurrency: int = 10,
+    verbose: bool = True,
+) -> EvalReport:
+    """Evaluate pre-built test cases against a list of metrics.
+    
+    This is a convenience function equivalent to:
+        suite = EvalSuite(metrics)
+        return await suite.run(test_cases)
+    """
+    suite = EvalSuite(metrics=metrics, concurrency=concurrency, verbose=verbose)
+    return await suite.run(test_cases)
+
+async def evaluate_against(
+    target: TargetFn,
+    mutations: Any,
+    metrics: list[Metric],
+    *,
+    expected_output_fn: Callable[[str], str | Awaitable[str]] | None = None,
+    context_fn: Callable[[str], list[str] | Awaitable[list[str]]] | None = None,
+    concurrency: int = 10,
+    verbose: bool = True,
+) -> EvalReport:
+    """Run generated mutations against a live target and evaluate.
+    
+    This is a convenience function equivalent to:
+        suite = EvalSuite(metrics)
+        return await suite.run_against(target, mutations)
+    """
+    suite = EvalSuite(metrics=metrics, concurrency=concurrency, verbose=verbose)
+    return await suite.run_against(
+        target,
+        mutations,
+        expected_output_fn=expected_output_fn,
+        context_fn=context_fn,
+    )

@@ -58,7 +58,7 @@ from mutant.eval.metrics import (
     Toxicity,
 )
 from mutant.eval.report import EvalReport
-from mutant.eval.suite import EvalSuite
+from mutant.eval.suite import EvalSuite, evaluate, evaluate_against
 from mutant.eval.types import EvalResult, MetricResult, TestCase, Verdict
 
 __all__ = [
@@ -68,7 +68,7 @@ __all__ = [
     "EvalResult",
     "Verdict",
     # Suite & Report
-    "EvalSuite",
+    "EvalSuite", "evaluate", "evaluate_against",
     "EvalReport",
     # Base
     "Metric",
