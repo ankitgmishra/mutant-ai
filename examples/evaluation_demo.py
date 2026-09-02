@@ -17,7 +17,7 @@ from mutant.eval.metrics import (
     ContextPrecision,
     ToolSelection,
 )
-from mutant.providers import OpenAIProvider
+from mutant.providers import OllamaProvider
 from mutant.datasets import load_test_cases
 from mutant.core.mutation import mutate
 from mutant.core.scenario import Scenario
@@ -25,7 +25,7 @@ from mutant.redteam import redteam
 
 async def main():
     # Provide a real or mock provider
-    provider = OpenAIProvider("gpt-4o-mini")
+    provider = OllamaProvider("llama3.2")
 
     print("=== 1. Basic LLM Evaluation ===")
     basic_case = TestCase(
