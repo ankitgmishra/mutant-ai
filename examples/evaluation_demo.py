@@ -25,7 +25,7 @@ from mutant.redteam import redteam
 
 async def main():
     # Provide a real or mock provider
-    provider = OllamaProvider("llama3.2")
+    provider = OllamaProvider(model="llama3.2")
 
     print("=== 1. Basic LLM Evaluation ===")
     basic_case = TestCase(
