@@ -158,18 +158,126 @@
 
     <!-- HEADER -->
     <div class="panel header-panel">
-        <div class="bold text-cyan" style="font-size: 1.2em; margin-bottom: 8px;">MUTANT RED TEAM REPORT</div>
-        {% if report.vulnerable_behaviors|length > 0 %}
-            <div class="bold text-red" style="font-size: 1.1em;">{{ report.vulnerable_behaviors|length }}/{{ report.total_behaviors }} VULNERABILITIES FOUND</div>
+        <div class="bold text-cyan" style="font-size: 1.2em; margin-bottom: 8px;">MUTANT RED TEAM REPORT <span class="text-dim" style="font-size: 0.6em;">(trace-driven)</span></div>
+        {% set confirmed = report.vulnerabilities|length %}
+        {% if confirmed > 0 %}
+            <div class="bold text-red" style="font-size: 1.1em;">{{ confirmed }} CONFIRMED VULNERABILITIES — {{ report.vulnerable_behaviors|length }}/{{ report.total_behaviors }} behaviors</div>
         {% else %}
-            <div class="bold text-green" style="font-size: 1.1em;">ALL {{ report.total_behaviors }} BEHAVIORS DEFENDED</div>
+            <div class="bold text-yellow" style="font-size: 1.1em;">NO CONFIRMED VIOLATION IN {{ report.total_behaviors }} BEHAVIOR(S) — SCOPED TEST</div>
         {% endif %}
-        <div class="text-dim" style="margin-top: 8px;">{{ report.total_turns }} turns · {{ "%.1f"|format(report.duration_seconds) }}s</div>
+        <div class="text-dim" style="margin-top: 8px;">{{ report.total_turns }} turns · {{ report.traces|length if report.traces else report.total_turns // 2 }} traces · {{ "%.1f"|format(report.duration_seconds) }}s · {{ report.total_behaviors }} behavior(s), {{ report.total_turns // 2 }} attacks</div>
+        <div class="text-dim" style="margin-top: 4px; font-size: 0.85em;">Trace-driven, verified: only observable policy violations count. A 'defended' result means no confirmed violation within scope — not secure.</div>
+        {% if report.rules and report.rules|length > 0 %}
+            <div class="text-dim" style="margin-top: 4px; font-size: 0.8em;">Rules: {{ report.rules|join(", ") }}</div>
+        {% endif %}
     </div>
 
-    <!-- GOAL -->
-    <div class="rule"><span>GOAL</span></div>
-    <div class="bold text-white" style="margin-left: 16px;">{{ report.goal }}</div>
+    <!-- GOAL & RULES -->
+    <div class="rule"><span>GOAL & RULES</span></div>
+    <div class="bold text-white" style="margin-left: 16px;">Goal: {{ report.goal }}</div>
+    {% if report.rules and report.rules|length > 0 %}
+        <div class="text-dim" style="margin-left: 16px; margin-top: 8px;">Security rules:
+            <ul style="margin-left: 16px;">
+                {% for r in report.rules %}
+                    <li>{{ r }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <div class="text-dim" style="margin-left: 16px; margin-top: 4px;">Rules: built-in checks (prompt leakage, secret exposure, unauthorized tool use)</div>
+    {% endif %}
+
+    <!-- FINDINGS (Trace-Verified, Minimal) -->
+    {% if report.vulnerabilities %}
+        <div class="rule"><span>🚨 FINDINGS — TRACE-VERIFIED</span></div>
+        <div style="margin-left: 16px;">
+            {% for vuln in report.vulnerabilities %}
+                {% set sev_icon = '🔴' if vuln.severity.value == 'critical' else ('🟠' if vuln.severity.value == 'high' else ('🟡' if vuln.severity.value == 'medium' else '🔵')) %}
+                {% set sev_class = 'text-red' if vuln.severity.value in ['critical', 'high'] else 'text-yellow' %}
+                {% set conf = "%.0f"|format(vuln.confidence * 100) if vuln.confidence else "n/a" %}
+                
+                <div class="panel red">
+                    <div class="panel-title text-red" style="font-size: 1.1em;">
+                        {{ sev_icon }} FINDING #{{ loop.index }}: {{ vuln.behavior_name }} 
+                        <span class="bold {{ sev_class }}" style="float: right;">{{ vuln.severity.value.upper() }} · {{ conf }} ({{ vuln.verification_type }})</span>
+                    </div>
+                    
+                    <div style="margin-top: 12px; padding: 12px; background: rgba(218, 54, 51, 0.08); border-radius: 4px;">
+                        <div><span class="bold text-white">Behavior:</span> <span class="text-dim">{{ vuln.behavior }} ({{ vuln.behavior_name }})</span></div>
+                        <div><span class="bold text-white">Rule:</span> <span class="text-dim">{{ vuln.violated_rule or report.goal }}</span></div>
+                        <div><span class="bold text-white">Severity:</span> <span class="bold {{ sev_class }}">{{ vuln.severity.value.upper() }}</span> &nbsp; <span class="text-dim">Confidence: {{ conf }} ({{ vuln.verification_type }})</span></div>
+                        <div><span class="bold text-white">Violation:</span> <span class="bold text-red">{{ vuln.violation }}</span></div>
+                    </div>
+
+                    {% set repro = vuln.minimal_attack_path if vuln.minimal_attack_path and vuln.minimal_attack_path|length > 0 else vuln.attack_path %}
+                    {% if repro and repro|length > 0 %}
+                        {% set first_step = repro[0] %}
+                        {% set last_step = repro[-1] %}
+                        <div style="margin-top: 12px;">
+                            <span class="bold text-white">Attack strategy:</span> <span class="text-dim">{{ last_step.strategy }}</span> &nbsp; <span class="text-dim">({{ repro|length }} steps, minimal)</span>
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <span class="bold text-white">Exact attack (minimal):</span><br>
+                            <div class="message-block text-white">"{{ first_step.attacker_message }}"</div>
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <span class="bold text-white">Exact trace output:</span><br>
+                            <div class="message-block text-white">"{{ last_step.target_response }}"</div>
+                        </div>
+                        {% if last_step.tool_calls and last_step.tool_calls|length > 0 %}
+                            <div style="margin-top: 8px;">
+                                <span class="bold text-white">Violating tool call:</span> <span class="text-cyan">{{ last_step.tool_calls[0] }}</span>
+                            </div>
+                        {% endif %}
+                        {% if vuln.trace_evidence and vuln.trace_evidence.tool_calls %}
+                            <div style="margin-top: 4px;" class="text-dim">Trace tool calls: {{ vuln.trace_evidence.tool_calls }}</div>
+                        {% endif %}
+                    {% endif %}
+                    
+                    <div style="margin-top: 12px;">
+                        <span class="bold text-white">Impact:</span> 
+                        <span class="text-dim">{{ vuln.impact }}</span>
+                    </div>
+                    
+                    {% if vuln.evidence %}
+                        <div style="margin-top: 8px;">
+                            <span class="bold text-white">Evidence (observable):</span> 
+                            <span class="text-dim">"{{ vuln.evidence }}"</span>
+                        </div>
+                    {% endif %}
+                    
+                    {% if vuln.recommended_mitigation %}
+                        <div style="margin-top: 12px; padding: 12px; background: rgba(35, 134, 54, 0.1); border-radius: 4px; border: 1px solid var(--green);">
+                            <span class="bold text-green">✓ Recommended Mitigation:</span><br>
+                            <span class="text-dim">{{ vuln.recommended_mitigation }}</span>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Minimal Reproduction -->
+                    <div style="margin-top: 16px;">
+                        <div class="bold text-white" style="margin-bottom: 8px;">Minimal Reproduction ({{ repro|length }} steps):</div>
+                        {% for step in repro %}
+                            <div class="tree-node">
+                                <span class="text-dim">Turn {{ step.turn_number }} [{{ step.strategy }}] </span> 
+                                <span class="bold text-magenta">Attacker:</span> <span class="text-white">"{{ step.attacker_message[:80] }}..."</span><br>
+                                <span style="margin-left: 20px;" class="bold text-blue">Target:</span> <span class="text-white">"{{ step.target_response[:80] }}..."</span>
+                                {% if step.tool_calls and step.tool_calls|length > 0 %}
+                                    <br><span style="margin-left: 20px;" class="text-dim">tool: {{ step.tool_calls[0] }}</span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                        {% if vuln.attack_path|length > repro|length %}
+                            <div class="text-dim" style="margin-top: 8px;">Full exploit was {{ vuln.attack_path|length }} steps → minimized to {{ repro|length }}.</div>
+                        {% endif %}
+                    </div>
+                    <div style="margin-top: 8px;" class="text-dim">Why vulnerable: {{ vuln.violation }}</div>
+                    {% if vuln.regression_test_path %}
+                        <div class="text-dim" style="margin-top: 4px;">Regression test: {{ vuln.regression_test_path }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 
     <!-- TIMELINE -->
     <div class="rule"><span>EXECUTION TIMELINE</span></div>
@@ -289,13 +397,13 @@
             </div>
         {% endif %}
     {% else %}
-        <!-- ALL DEFENDED -->
+        <!-- SCOPED NO-VIOLATION -->
         <br>
-        <div class="panel green">
-            <div class="panel-title text-green">DEFENSE STATUS</div>
-            <div class="bold text-green">All tested behaviors were successfully defended.</div>
+        <div class="panel yellow">
+            <div class="panel-title text-yellow">SCOPED RESULT — NO VIOLATION OBSERVED</div>
+            <div class="bold text-yellow">No vulnerability was observed within the tested scope.</div>
             <br>
-            <div class="text-dim">The target system resisted all attack strategies attempted during this session. Continue testing with broader behavior sets and higher escalation levels for deeper coverage.</div>
+            <div class="text-dim">No violation was observed for the tested behaviors and attack attempts in this session ({{ report.total_behaviors }} behavior(s), {{ report.total_turns // 2 }} attack(s)). This does NOT mean the system is secure — only that these specific attacks did not succeed. For deeper coverage, test broader behavior sets and higher escalation levels.</div>
         </div>
     {% endif %}
 
@@ -400,7 +508,23 @@
     <div style="margin-left: 16px;">
         <div><span class="bold text-white">Total Turns:</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ report.total_turns }}</div>
         <div><span class="bold text-white">Behaviors Tested:</span> &nbsp;&nbsp;&nbsp;{{ report.total_behaviors }}</div>
-        <div><span class="bold text-white">Vulnerabilities:</span> &nbsp;&nbsp;&nbsp;&nbsp;{{ report.vulnerable_behaviors|length }}/{{ report.total_behaviors }} ({{ "%.0f"|format(report.overall_vulnerability_rate * 100) }}%)</div>
+        <div><span class="bold text-white">Vulnerabilities:</span> &nbsp;&nbsp;&nbsp;&nbsp;{{ report.vulnerabilities|length }}/{{ report.total_behaviors }}</div>
+        
+        {% set crit = namespace(count=0) %}
+        {% set high = namespace(count=0) %}
+        {% set med = namespace(count=0) %}
+        {% for v in report.vulnerabilities %}
+            {% if v.severity.value == 'critical' %}{% set crit.count = crit.count + 1 %}{% endif %}
+            {% if v.severity.value == 'high' %}{% set high.count = high.count + 1 %}{% endif %}
+            {% if v.severity.value == 'medium' %}{% set med.count = med.count + 1 %}{% endif %}
+        {% endfor %}
+        
+        <div style="margin-top: 12px; margin-bottom: 12px; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 6px; display: inline-block;">
+            <div style="margin-bottom: 4px;"><span class="text-red">🔴 Critical:</span> &nbsp;&nbsp;&nbsp;{{ crit.count }}</div>
+            <div style="margin-bottom: 4px;"><span class="text-red">🟠 High:</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ high.count }}</div>
+            <div><span class="text-yellow">🟡 Medium:</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ med.count }}</div>
+        </div>
+
         <div><span class="bold text-white">Duration:</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ "%.1f"|format(report.duration_seconds) }}s</div>
     </div>
 

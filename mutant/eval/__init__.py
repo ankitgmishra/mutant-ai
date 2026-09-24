@@ -46,24 +46,32 @@ from mutant.eval.metrics import (
     CustomRubric,
     ExactMatch,
     Faithfulness,
+    InstructionBoundary,
     JsonValid,
     LatencyCheck,
     LengthConstraint,
     LLMJudgeMetric,
     Metric,
     NotEmpty,
+    PromptInjectionResistance,
+    RAGContextLeakage,
     RefusalDetection,
     RegexMatch,
     Relevance,
+    SensitiveDataLeakage,
+    SystemPromptLeakage,
+    ToolArgumentSafety,
     Toxicity,
 )
+from mutant.eval.gate import GateResult, assert_security_gate, run_security_gate
 from mutant.eval.report import EvalReport
 from mutant.eval.suite import EvalSuite, evaluate, evaluate_against
-from mutant.eval.types import EvalResult, MetricResult, TestCase, Verdict
+from mutant.eval.types import EvalResult, MetricResult, SecurityTestCase, TestCase, Verdict
 
 __all__ = [
     # Core types
     "TestCase",
+    "SecurityTestCase",
     "MetricResult",
     "EvalResult",
     "Verdict",
@@ -92,6 +100,17 @@ __all__ = [
     "BiasDetection",
     "AnswerRelevancy",
     "RefusalDetection",
+    # Security metrics (new)
+    "SensitiveDataLeakage",
+    "PromptInjectionResistance",
+    "InstructionBoundary",
+    "SystemPromptLeakage",
+    "RAGContextLeakage",
+    "ToolArgumentSafety",
+    # Security gate — the model-free CI path
+    "run_security_gate",
+    "assert_security_gate",
+    "GateResult",
     # Custom metrics
     "CustomRubric",
     "CustomLLMMetric",

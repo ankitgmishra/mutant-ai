@@ -1,10 +1,31 @@
 """
-mutant/redteam — Behavior-Driven Red Team Engine.
+mutant/redteam — Behavior-Driven Red Team Engine (DEPRECATED).
 
-Automatically discovers behavioral weaknesses in AI systems
-through multi-turn adversarial conversations.
+.. deprecated::
+    The autonomous red-team planner/attack-loop is deprecated.
+    Security is now a first-class part of the EvalSuite + Mutate architecture.
+    Use the new Security Evaluation workflow instead:
 
-Quickstart
+    >>> from mutant import mutate, Scenario
+    >>> from mutant.eval import EvalSuite, TestCase
+    >>> from mutant.eval.metrics.security import (
+    ...     SensitiveDataLeakage, SystemPromptLeakage, ToolArgumentSafety
+    ... )
+    >>> # Generate security-focused cases
+    >>> mutations = await mutate(
+    ...     Scenario(title="Refund", description="Customer requests refund"),
+    ...     provider=provider,
+    ...     dimensions=["security.prompt_injection", "security.data_leakage"],
+    ... )
+    >>> # Evaluate with security metrics
+    >>> suite = EvalSuite(metrics=[SensitiveDataLeakage(), SystemPromptLeakage()])
+    >>> report = await suite.run_against(target=my_agent, mutations=mutations)
+    >>> print(report.summary())
+
+    The ``red_team()`` API is kept for backward compatibility and will be
+    removed in a future release. It now emits a deprecation warning.
+
+Quickstart (legacy, deprecated)
 ----------
 >>> import asyncio
 >>> from mutant.redteam import red_team, TargetProfile

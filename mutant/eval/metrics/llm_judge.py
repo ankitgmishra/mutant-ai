@@ -173,7 +173,7 @@ class Faithfulness(LLMJudgeMetric):
     """Evaluates whether the output is faithful to the provided context.
     """
 
-    required_fields = ("input", "actual_output", "context")
+    required_fields = ("input", "actual_output", "retrieval_context|context")
 
     def __init__(
         self,
@@ -185,8 +185,8 @@ class Faithfulness(LLMJudgeMetric):
         super().__init__(provider, name="Faithfulness", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-         
-        context_text = "\n---\n".join(test_case.context) if test_case.context else "(No context provided)"
+        ctx = test_case.retrieval_context or test_case.context
+        context_text = "\n---\n".join(ctx) if ctx else "(No context provided)"
 
         return f"""You are an expert evaluation judge. Assess the FAITHFULNESS of the output to the provided context.
 
@@ -256,7 +256,7 @@ class ContextPrecision(LLMJudgeMetric):
     Matches DeepEval/Ragas standards for RAG evaluation.
     """
 
-    required_fields = ("input", "retrieval_context", "expected_output")
+    required_fields = ("input", "retrieval_context|context", "expected_output")
 
     def __init__(
         self,
@@ -268,8 +268,8 @@ class ContextPrecision(LLMJudgeMetric):
         super().__init__(provider, name="ContextPrecision", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-         
-        retrieval_text = "\n---\n".join([f"Rank {i+1}: {ctx}" for i, ctx in enumerate(test_case.retrieval_context)]) if test_case.retrieval_context else "(No context provided)"
+        ctx = test_case.retrieval_context or test_case.context
+        retrieval_text = "\n---\n".join([f"Rank {i+1}: {c}" for i, c in enumerate(ctx)]) if ctx else "(No context provided)"
 
         return f"""You are an expert RAG evaluation judge. Assess the CONTEXT PRECISION of the retrieved context.
 
@@ -304,7 +304,7 @@ class ContextRecall(LLMJudgeMetric):
     Matches DeepEval/Ragas standards for RAG evaluation.
     """
 
-    required_fields = ("input", "retrieval_context", "expected_output")
+    required_fields = ("input", "retrieval_context|context", "expected_output")
 
     def __init__(
         self,
@@ -316,8 +316,8 @@ class ContextRecall(LLMJudgeMetric):
         super().__init__(provider, name="ContextRecall", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-         
-        retrieval_text = "\n---\n".join(test_case.retrieval_context) if test_case.retrieval_context else "(No context provided)"
+        ctx = test_case.retrieval_context or test_case.context
+        retrieval_text = "\n---\n".join(ctx) if ctx else "(No context provided)"
 
         return f"""You are an expert RAG evaluation judge. Assess the CONTEXT RECALL of the retrieved context.
 
@@ -474,7 +474,7 @@ class AnswerRelevancy(LLMJudgeMetric):
     retrieved context and the original question.
     """
 
-    required_fields = ("input", "actual_output", "retrieval_context")
+    required_fields = ("input", "actual_output", "retrieval_context|context")
 
     def __init__(
         self,
@@ -486,8 +486,8 @@ class AnswerRelevancy(LLMJudgeMetric):
         super().__init__(provider, name="AnswerRelevancy", threshold=threshold, **kwargs)
 
     def _build_prompt(self, test_case: TestCase) -> str:
-         
-        retrieval_text = "\n---\n".join(test_case.retrieval_context) if test_case.retrieval_context else "(No retrieval context)"
+        ctx = test_case.retrieval_context or test_case.context
+        retrieval_text = "\n---\n".join(ctx) if ctx else "(No retrieval context)"
 
         return f"""You are a RAG (Retrieval Augmented Generation) evaluation judge.
 

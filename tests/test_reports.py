@@ -62,7 +62,7 @@ def test_json_report_render(scenario: Scenario, cases: list[MutationCase]) -> No
     assert len(data["cases"]) == 2
     # New fields should be present
     assert "rationale" in data["cases"][0]
-    assert "novelty_score" in data["cases"][0]
+    assert "quality_approved" in data["cases"][0]
 
 
 def test_json_report_save(

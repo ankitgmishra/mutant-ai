@@ -52,6 +52,14 @@ from mutant.dimensions.retrieval import (
     MissingKnowledgeDimension,
     SourceFabricationDimension,
 )
+from mutant.dimensions.security_eval import (
+    SecurityDataLeakageDimension,
+    SecurityInstructionConflictDimension,
+    SecurityPromptInjectionDimension,
+    SecurityRagContextManipulationDimension,
+    SecuritySystemPromptExtractionDimension,
+    SecurityToolArgumentManipulationDimension,
+)
 from mutant.dimensions.safety import (
     ContextInjectionDimension,
     InstructionOverrideDimension,
@@ -81,7 +89,7 @@ from mutant.dimensions.tool import (
     WrongSchemaToolResponseDimension,
 )
 
-# ── Register all 47 dimensions ────────────────────────────────────────────────
+# ── Register all 53 dimensions ────────────────────────────────────────────────
 
 _ALL_DIMENSIONS: list[MutationDimension] = [
     # Context (4)
@@ -156,6 +164,13 @@ _ALL_DIMENSIONS: list[MutationDimension] = [
     ConflictingSourcesDimension(),
     MissingKnowledgeDimension(),
     SourceFabricationDimension(),
+    # Security (6) — NEW: Security Evaluation via EvalSuite+Mutate
+    SecurityPromptInjectionDimension(),
+    SecurityInstructionConflictDimension(),
+    SecurityDataLeakageDimension(),
+    SecuritySystemPromptExtractionDimension(),
+    SecurityRagContextManipulationDimension(),
+    SecurityToolArgumentManipulationDimension(),
 ]
 
 for _dim in _ALL_DIMENSIONS:

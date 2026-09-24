@@ -34,6 +34,7 @@ class Verdict(StrEnum):
     FAIL = "fail"
     ERROR = "error"
     SKIP = "skip"
+    UNKNOWN = "unknown"
 
 
 # ── Contexts ─────────────────────────────────────────────────────────────────
@@ -113,6 +114,33 @@ class TestCase(BaseModel):
         default=None, description="Response latency in milliseconds."
     )
 
+    # Security-specific (optional — enables Security Evaluation without requiring traces)
+    sensitive_data: list[str] | None = Field(
+        default=None, description="Sensitive strings that must not appear in output (API keys, secrets, PII, etc.)."
+    )
+    expected_behavior: str | None = Field(
+        default=None, description="Expected behavior for instruction boundary checks."
+    )
+    system_prompt: str | None = Field(
+        default=None, description="Hidden/system prompt text to check for leakage."
+    )
+    # Alias for tool_calls to match SecurityTestCase spec (tool_calls vs tools_called)
+    tool_calls: list[dict[str, Any]] | None = Field(
+        default=None, description="Alias for tools_called — structured tool calls for ToolArgumentSafety."
+    )
+
+    def get_tool_calls(self) -> list[dict[str, Any]] | None:
+        """Return observable tool calls, checking both tool_calls and tools_called."""
+        if self.tool_calls is not None:
+            return self.tool_calls
+        return self.tools_called
+
+    def get_retrieved_context(self) -> list[str] | None:
+        """Return retrieved context, checking retrieval_context and context."""
+        if self.retrieval_context is not None:
+            return self.retrieval_context
+        return self.context
+
     @classmethod
     def from_evaluation_case(
         cls,
@@ -144,6 +172,11 @@ class TestCase(BaseModel):
             retrieval_context=retrieval_context,
             mutation=mutation_context,
         )
+
+
+# Alias for security test cases — TestCase now supports all security fields
+# Users can do: SecurityTestCase(input=..., sensitive_data=[...], tool_calls=[...])
+SecurityTestCase = TestCase
 
 
 # ── MetricResult ─────────────────────────────────────────────────────────────
@@ -203,6 +236,32 @@ class EvalResult(BaseModel):
     metric_results: dict[str, MetricResult] = Field(default_factory=dict)
     passed: bool = True
     duration_seconds: float = 0.0
+
+    @property
+    def status(self) -> Verdict:
+        """Decisive verdict for this case across all metrics.
+
+        Unlike ``passed`` (which only asks "did any metric fail?"), ``status``
+        distinguishes a case that was actually verified from one where every
+        metric lacked the data to judge:
+
+        - ``FAIL``    — at least one metric failed or errored.
+        - ``UNKNOWN`` — every metric was UNKNOWN/SKIP (nothing to verify).
+        - ``PASS``    — at least one metric passed and none failed.
+        """
+        verdicts = [r.verdict for r in self.metric_results.values()]
+        if not verdicts:
+            return Verdict.UNKNOWN
+        if any(v in (Verdict.FAIL, Verdict.ERROR) for v in verdicts):
+            return Verdict.FAIL
+        if all(v in (Verdict.UNKNOWN, Verdict.SKIP) for v in verdicts):
+            return Verdict.UNKNOWN
+        return Verdict.PASS
+
+    @property
+    def is_inconclusive(self) -> bool:
+        """True when no metric could reach a decisive verdict."""
+        return self.status == Verdict.UNKNOWN
 
     @property
     def failed_metrics(self) -> list[str]:

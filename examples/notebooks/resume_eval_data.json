@@ -1,23 +1,15 @@
 [
   {
     "input": "Where did Ankit study and what was his GPA?",
-    "expected_output": "Ankit studied Artificial Intelligence & Machine Learning at the University of Mumbai, where he achieved a GPA of 3.5/4.",
-    "context": [
-      "University of Mumbai\nBachelor of Technology in Artificial Intelligence & Machine Learning\nGPA: 3.5 / 4"
-    ]
+    "expected_output": "Ankit studied Artificial Intelligence & Machine Learning at the University of Mumbai, where he achieved a GPA of 3.5/4."
+
   },
   {
     "input": "What experience does he have with DocuraHealth?",
-    "expected_output": "He worked at DocuraHealth (YC W26) in San Francisco.",
-    "context": [
-      "WORK EXPERIENCE\nDocuraHealth (YC W26)\nSan Francisco, USA"
-    ]
+    "expected_output": "He worked at DocuraHealth (YC W26) in San Francisco."
   },
   {
     "input": "What projects did he build with agents?",
-    "expected_output": "He built Graphify (a persistent knowledge graph agent framework) and AgentOS (an OS-level autonomous agent infrastructure).",
-    "context": [
-      "PROJECTS\nGraphify\nAgentOS"
-    ]
+    "expected_output": "He built Graphify (a persistent knowledge graph agent framework) and AgentOS (an OS-level autonomous agent infrastructure)."
   }
 ]

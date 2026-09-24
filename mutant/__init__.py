@@ -51,7 +51,15 @@ from mutant.datasets.io import (
     load_json,
     load_jsonl,
 )
-from mutant.eval import EvalReport, EvalSuite, TestCase
+from mutant.eval import EvalReport, EvalSuite, SecurityTestCase, TestCase
+from mutant.eval.metrics.security import (
+    InstructionBoundary,
+    PromptInjectionResistance,
+    RAGContextLeakage,
+    SensitiveDataLeakage,
+    SystemPromptLeakage,
+    ToolArgumentSafety,
+)
 from mutant.exceptions import MutantError, ParseError, ProviderError
 from mutant.redteam import (
     RedTeamReport,
@@ -85,10 +93,11 @@ __all__ = [
     "ParseError",
     "ProviderError",
     "QualityReviewResult",
-    # Red Team API
+    # Red Team API (deprecated — use security metrics)
     "RedTeamReport",
     # Core types
     "Scenario",
+    "SecurityTestCase",
     "TargetProfile",
     "TestCase",
     "Transcript",
@@ -109,6 +118,13 @@ __all__ = [
     "red_team",
     "red_team_sync",
     "registry",
+    # Security Evaluation Metrics
+    "SensitiveDataLeakage",
+    "PromptInjectionResistance",
+    "InstructionBoundary",
+    "SystemPromptLeakage",
+    "RAGContextLeakage",
+    "ToolArgumentSafety",
 ]
 
 __version__ = "0.7.9"

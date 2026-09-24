@@ -24,6 +24,7 @@ class MutationCategory(StrEnum):
     TOOL = "tool"
     REASONING = "reasoning"
     SAFETY = "safety"
+    SECURITY = "security"
     INTENT = "intent"
     IDENTITY = "identity"
     POLICY = "policy"
@@ -236,10 +237,36 @@ class MutationResult(BaseModel):
     cases: list[EvaluationCase]
     behavior_analysis: BehaviorAnalysis | None = None
     mutation_plan: MutationPlan | None = None
+    #: How many probes were asked for. ``None`` when the run was not count-based.
+    requested_count: int | None = None
 
     @property
     def count(self) -> int:
         return len(self.cases)
+
+    @property
+    def shortfall(self) -> int:
+        """Probes requested but not delivered.
+
+        Generation returns whatever the model produced, so asking for eight probes can
+        yield three. Silent under-delivery is what turns a thin probe set into a green
+        security result, so the gap is exposed as a number rather than left to be noticed.
+        """
+        if self.requested_count is None:
+            return 0
+        return max(0, self.requested_count - len(self.cases))
+
+    @property
+    def dimension_counts(self) -> dict[str, int]:
+        """Probes delivered per dimension — which attack classes were actually exercised.
+
+        Compare against the dimensions you asked for: a dimension that came back empty is
+        an untested attack class, not a passing one.
+        """
+        counts: dict[str, int] = {}
+        for case in self.cases:
+            counts[case.dimension_id] = counts.get(case.dimension_id, 0) + 1
+        return counts
 
     @property
     def coverage_score(self) -> float:
@@ -250,7 +277,16 @@ class MutationResult(BaseModel):
 
     @property
     def summary(self) -> str:
-        return f"MutationResult: {len(self.cases)} cases generated. Coverage: {self.coverage_score:.0%}."
+        text = (
+            f"MutationResult: {len(self.cases)} cases generated. "
+            f"Coverage: {self.coverage_score:.0%}."
+        )
+        if self.shortfall:
+            text += (
+                f" WARNING: {self.shortfall} of {self.requested_count} requested probes "
+                "were not delivered."
+            )
+        return text
 
     def filter(self, **kwargs: Any) -> MutationResult:
         """Filter cases based on attributes."""

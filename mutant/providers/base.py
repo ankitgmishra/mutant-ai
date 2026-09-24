@@ -102,6 +102,30 @@ class BaseLLMProvider(ABC):
             Maximum tokens in the response.
         """
 
+    async def complete_text(
+        self,
+        messages: list[LLMMessage],
+        *,
+        temperature: float = 0.8,
+        max_tokens: int = 4096,
+    ) -> LLMResponse:
+        """Complete for natural-language output.
+
+        ``complete()`` is the *structured* path: providers may constrain it to a
+        parseable format because the mutation engine and the LLM judges consume
+        JSON. Application code that needs prose — agent replies, RAG answers,
+        refusals — must use this method instead, or the answer comes back wrapped
+        in a JSON envelope and a refusal can arrive as the user's own message
+        echoed back.
+
+        The default implementation delegates to ``complete()``, which is already
+        unconstrained for most providers; providers that force structured output
+        must override this.
+        """
+        return await self.complete(
+            messages, temperature=temperature, max_tokens=max_tokens
+        )
+
     async def complete_json(
         self,
         messages: list[LLMMessage],
@@ -178,8 +202,17 @@ class BaseLLMProvider(ABC):
     @staticmethod
     def _parse_json(content: str, schema: type[T]) -> T:
         """Extract JSON from content and validate against schema."""
+        import re
+
+        # Strip qwen3 / deepseek <think> blocks (Qwen3:4b emits thinking)
+        # Ollama may put thinking in separate field, but some configs embed it
+        text = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        # Also strip generic reasoning tags
+        text = re.sub(r"<\|im_start\|>.*?<\|im_end\|>", "", text, flags=re.DOTALL).strip()
+        if not text:
+            raise ParseError("Empty LLM response (thinking only / truncated)", raw_content=content)
+
         # Strip markdown fences if present
-        text = content.strip()
         if text.startswith("```"):
             lines = text.split("\n")
             # Drop first and last fence lines
@@ -220,6 +253,28 @@ class BaseLLMProvider(ABC):
                     f"No JSON found in LLM response: {exc}",
                     raw_content=content,
                 ) from exc
+
+        # ── Small-model robustness: handle bare list when dict expected (common with qwen3:4b) ──
+        # e.g., MutationPlan expects {"dimension_allocations": [...]}, but LLM returns [...]
+        if isinstance(data, list) and schema.__name__ == "MutationPlan":
+            # Wrap bare list as dimension_allocations
+            data = {
+                "dimension_allocations": data,
+                "coverage_strategy": "auto (wrapped from bare list)",
+                "diversity_strategy": "auto",
+                "total_planned": len(data),
+                "expected_failure_modes": [],
+            }
+        # Handle case where LLM returns single allocation dict instead of list wrapper
+        if isinstance(data, dict) and schema.__name__ == "MutationPlan" and "dimension" in data and "count" not in str(data):
+            # Might be a single allocation object, not wrapped
+            if "dimension_allocations" not in data and any(k in data for k in ("dimension_id", "dimension")):
+                data = {
+                    "dimension_allocations": [data],
+                    "coverage_strategy": "auto",
+                    "diversity_strategy": "auto",
+                    "total_planned": 1,
+                }
 
         try:
             return schema.model_validate(data)

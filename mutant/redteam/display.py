@@ -57,10 +57,12 @@ def display_report(report: RedTeamReport, *, show_messages: bool = True) -> None
 
     _render_header(console, report)
     _render_goal(console, report)
+    _render_vulnerabilities(console, report)
     _render_timeline(console, report, show_messages=show_messages)
     _render_attack_graph(console, report)
 
-    if report.hypothesis_evolution:
+    # Only show hypothesis evolution if there's evidence-backed evolution
+    if report.hypothesis_evolution and _has_evidence_backed_hypothesis(report):
         _render_hypothesis_evolution(console, report)
 
     if report.root_cause:
@@ -78,21 +80,41 @@ def display_report(report: RedTeamReport, *, show_messages: bool = True) -> None
     console.print()
 
 
+def _has_evidence_backed_hypothesis(report: RedTeamReport) -> bool:
+    """Return True only if hypotheses have supporting evidence."""
+    for snap in report.hypothesis_evolution:
+        for h in snap.get("hypotheses", []):
+            if h.get("supporting_evidence") or h.get("status") == "rejected":
+                # If there's at least one hypothesis with evidence linkage, show it
+                return True
+            # Also check legacy snapshots with confidence and evidence count
+            if isinstance(h.get("supporting"), int) and h.get("supporting", 0) > 0:
+                return True
+    # Fallback: check if any snapshot has evidence_tags-like progress
+    # If no evidence-backed hypothesis, hide the noisy panel
+    return False
+
+
 # ── Header ─────────────────────────────────────────────────────────────────────
 
 
 def _render_header(console: Console, report: RedTeamReport) -> None:
-    vuln = len(report.vulnerable_behaviors)
+    vuln = len(report.vulnerabilities)
     total = report.total_behaviors
+    traces = len(getattr(report, "traces", []) or [])
+    rules = getattr(report, "rules", [])
 
     if vuln > 0:
-        status = f"[bold red]{vuln}/{total} VULNERABILITIES FOUND[/bold red]"
+        status = f"[bold red]{vuln} CONFIRMED VULNERABILITIES ({len(report.vulnerable_behaviors)}/{total} behaviors)[/bold red]"
     else:
-        status = f"[bold green]ALL {total} BEHAVIORS DEFENDED[/bold green]"
+        status = f"[bold yellow]NO CONFIRMED VIOLATION IN {total} BEHAVIOR(S) — SCOPED TEST[/bold yellow]"
 
+    extra = f"{report.total_turns} turns · {traces} traces · {report.duration_seconds:.1f}s"
+    if rules:
+        extra += f" · rules: {len(rules)}"
     header_text = Text.from_markup(
-        f"[bold cyan]MUTANT RED TEAM REPORT[/bold cyan]\n{status}\n"
-        f"[dim]{report.total_turns} turns · {report.duration_seconds:.1f}s[/dim]"
+        f"[bold cyan]MUTANT RED TEAM REPORT[/bold cyan] [dim](trace-driven)[/dim]\n{status}\n"
+        f"[dim]{extra}[/dim]"
     )
     console.print(
         Panel(header_text, box=box.DOUBLE, border_style="cyan", padding=(1, 4)),
@@ -163,16 +185,33 @@ def _render_timeline(
                     lines.append(f"[white]\"{target_msg}\"[/white]")
                     lines.append("")
 
-            # Show hypothesis being tested
+            # Show hypothesis being tested (only if evidence-backed)
             hypothesis_text = plan.get('hypothesis_text', '')
+            # Hide hypothesis if it contains hallucinated leak claim without evidence tags
+            analysis_data = target_turn.metadata.get("analysis", {}) if target_turn else {}
+            evidence_tags = analysis_data.get("evidence_tags", [])
             if hypothesis_text:
-                lines.append(f"[bold white]Hypothesis:[/bold white] [dim]\"{hypothesis_text}\"[/dim]")
-                expected = plan.get('expected_outcome', '')
-                if expected:
-                    lines.append(f"[bold white]Expected:[/bold white]   [dim]{expected}[/dim]")
-                lines.append("")
+                # Filter noisy hypotheses: if hypothesis claims leak but tags show refusal, don't show
+                is_noisy = ("leaked prompt" in hypothesis_text.lower() or "leaked" in hypothesis_text.lower()) and "refusal" in evidence_tags and not any(t in evidence_tags for t in ["prompt_leakage", "secret_leakage"])
+                if not is_noisy:
+                    lines.append(f"[bold white]Hypothesis:[/bold white] [dim]\"{hypothesis_text}\"[/dim]")
+                    expected = plan.get('expected_outcome', '')
+                    if expected:
+                        lines.append(f"[bold white]Expected:[/bold white]   [dim]{expected}[/dim]")
+                    lines.append("")
 
+            # Grounded result line with evidence tags
             lines.append(f"[bold white]Result:[/bold white]      {icon} [{style}]{turn_progress.replace('_', ' ').upper()}[/{style}]")
+            # Show grounded judge fields: Did violate, Evidence, Severity, Confidence
+            if target_turn and analysis_data:
+                did_violate = any(analysis_data.get(k) for k in ("complied", "leaked_secret", "leaked_prompt", "leaked_policy", "leaked_pii", "tool_misuse"))
+                violation_evidence = analysis_data.get("evidence", "")
+                conf = eval_data.get("confidence", analysis_data.get("confidence", 0))
+                lines.append(f"[bold white]Did violate?[/bold white]  {'[bold red]YES[/bold red]' if did_violate else '[green]NO[/green]'}  [dim](conf: {conf:.0%})[/dim]")
+                if evidence_tags:
+                    lines.append(f"[bold white]Evidence tags:[/bold white] [dim]{', '.join(evidence_tags)}[/dim]")
+                if violation_evidence:
+                    lines.append(f"[bold white]Evidence:[/bold white] [dim]\"{_truncate(violation_evidence, 120)}\"[/dim]")
 
             if reason_summary or eval_data.get("reasoning"):
                 planner_text = eval_data.get("reasoning", reason_summary)
@@ -289,16 +328,79 @@ def _render_recommendations(console: Console, report: RedTeamReport) -> None:
 def _render_all_defended(console: Console) -> None:
     console.print(
         Panel(
-            "[bold green]All tested behaviors were successfully defended.[/bold green]\n\n"
-            "[dim]The target system resisted all attack strategies attempted "
-            "during this session. Continue testing with broader behavior sets "
-            "and higher escalation levels for deeper coverage.[/dim]",
-            title="[bold green]DEFENSE STATUS[/bold green]",
-            border_style="green",
+            "[bold yellow]No vulnerability was observed within the tested scope.[/bold yellow]\n\n"
+            "[dim]No violation was observed for the tested behaviors and attack attempts in this session. "
+            "This does NOT mean the system is secure — only that these specific attacks did not succeed. "
+            "For deeper coverage, test broader behavior sets and higher escalation levels.[/dim]",
+            title="[bold yellow]SCOPED RESULT — NO VIOLATION OBSERVED[/bold yellow]",
+            border_style="yellow",
             padding=(1, 2),
         )
     )
     console.print()
+
+
+def _render_vulnerabilities(console: Console, report: RedTeamReport) -> None:
+    """Render the vulnerability evidence cards (trace-driven, verified)."""
+    if not report.vulnerabilities:
+        return
+    console.rule("[bold red]🚨 CONFIRMED VULNERABILITIES (trace-verified)[/bold red]", style="red")
+    console.print()
+    for idx, vuln in enumerate(report.vulnerabilities, 1):
+        sev_style = _SEVERITY_STYLE.get(vuln.severity.value.lower(), "white")
+        sev_icon = "🔴" if vuln.severity.value == "critical" else ("🟠" if vuln.severity.value == "high" else "🟡")
+        conf = f"{vuln.confidence:.0%}" if getattr(vuln, "confidence", 0) else "n/a"
+        ver_type = getattr(vuln, "verification_type", "deterministic")
+        lines: list[str] = []
+        lines.append(f"[bold white]FINDING #{idx}: {vuln.behavior_name}  [{sev_style}]{vuln.severity.value.upper()}[/{sev_style}] {sev_icon}  [dim]conf {conf} ({ver_type})[/dim]")
+        lines.append(f"[bold white]Behavior:[/bold white] {vuln.behavior} | [bold white]Rule:[/bold white] {getattr(vuln, 'violated_rule', '') or report.goal}")
+        lines.append(f"[bold white]Did violate?[/bold white] [bold red]YES — {vuln.violation}[/bold red]")
+        lines.append(f"[bold white]Evidence:[/bold white] \"{_truncate(vuln.evidence, 220)}\"")
+        lines.append(f"[bold white]Severity:[/bold white] [{sev_style}]{vuln.severity.value.upper()}[/{sev_style}]  [bold white]Confidence:[/bold white] {conf}")
+        # Trace-driven: show violating tool call if any
+        trace_ev = getattr(vuln, "trace_evidence", {}) or {}
+        tool_calls = trace_ev.get("tool_calls") if isinstance(trace_ev, dict) else None
+        if tool_calls:
+            lines.append(f"[bold white]Violating tool call:[/bold white] [cyan]{tool_calls[0].get('name')} {tool_calls[0].get('arguments')}[/cyan]")
+        lines.append("")
+        # Minimal reproduction
+        repro = getattr(vuln, "minimal_attack_path", None) or vuln.attack_path
+        if repro:
+            first = repro[0] if hasattr(repro[0], "attacker_message") else None
+            last = repro[-1] if hasattr(repro[-1], "target_response") else None
+            if first and last:
+                lines.append(f"[bold white]Attack strategy:[/bold white] {last.strategy}")
+                lines.append(f"[bold white]Prompt (minimal):[/bold white] \"{_truncate(first.attacker_message, 200)}\"")
+                lines.append(f"[bold white]Target response (minimal):[/bold white] \"{_truncate(last.target_response, 200)}\"")
+            lines.append(f"[bold white]Minimal reproduction:[/bold white] {len(repro)} steps ({len(repro)*2} turns) [dim](greedy minimized)[/dim]")
+            for step in repro[:4]:
+                msg = getattr(step, "attacker_message", "")
+                resp = getattr(step, "target_response", "")
+                strat = getattr(step, "strategy", "")
+                lines.append(f"  Turn {getattr(step, 'turn_number', '?')} [{strat}] → \"{_truncate(msg, 60)}\" → \"{_truncate(resp, 60)}\"")
+                tcs = getattr(step, "tool_calls", None)
+                if tcs:
+                    lines.append(f"    [dim]tool: {tcs[0]}[/dim]")
+            if len(repro) > 4:
+                lines.append(f"  [dim]... +{len(repro)-4} more steps[/dim]")
+            lines.append("")
+            lines.append(f"[bold white]Why vulnerable:[/bold white] {vuln.violation}")
+            lines.append(f"[bold white]Recommended fix:[/bold white] {vuln.recommended_mitigation}")
+            if getattr(vuln, "regression_test_path", ""):
+                lines.append(f"[bold white]Regression test:[/bold white] [dim]{vuln.regression_test_path}[/dim]")
+        else:
+            lines.append(f"[bold white]Evidence:[/bold white] {vuln.evidence}")
+            lines.append(f"[bold white]Violation:[/bold white] {vuln.violation}")
+
+        console.print(
+            Panel(
+                "\n".join(lines),
+                title=f"[bold red]🚨 FINDING #{idx} — {vuln.behavior_name}[/bold red]",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+        console.print()
 
 
 # ── Statistics ────────────────────────────────────────────────────────────────

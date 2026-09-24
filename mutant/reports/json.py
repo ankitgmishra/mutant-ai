@@ -43,6 +43,7 @@ def _build_report_dict(
                 "mutated": c.mutated_description,
                 "rationale": getattr(c, "rationale", ""),
                 "behavioral_tags": getattr(c, "behavioral_tags", []),
+                "quality_approved": c.quality_approved,
                 "plan_title": getattr(c, "plan_title", ""),
                 "metadata": getattr(c, "metadata", {}),
             }

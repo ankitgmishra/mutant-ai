@@ -36,6 +36,14 @@ from mutant.eval.metrics.llm_judge import (
     ToolCallOrder,
     TaskCompletion,
 )
+from mutant.eval.metrics.security import (
+    InstructionBoundary,
+    PromptInjectionResistance,
+    RAGContextLeakage,
+    SensitiveDataLeakage,
+    SystemPromptLeakage,
+    ToolArgumentSafety,
+)
 
 __all__ = [
     # Base
@@ -65,6 +73,13 @@ __all__ = [
     "ToolArgumentCorrectness",
     "ToolCallOrder",
     "TaskCompletion",
+    # Security Evaluation (new)
+    "SensitiveDataLeakage",
+    "PromptInjectionResistance",
+    "InstructionBoundary",
+    "SystemPromptLeakage",
+    "RAGContextLeakage",
+    "ToolArgumentSafety",
     # Custom
     "CustomRubric",
     "CustomLLMMetric",

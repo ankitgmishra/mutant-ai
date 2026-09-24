@@ -161,6 +161,7 @@ class MutationEngine:
             cases=ctx.final_cases,
             behavior_analysis=ctx.behavior_analysis,
             mutation_plan=ctx.mutation_plan,
+            requested_count=config.count,
         )
 
     def _resolve_dimensions(

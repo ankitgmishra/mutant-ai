@@ -101,3 +101,12 @@ test_export*.py
 
 # uv lockfile (commit or ignore depending on your policy — we commit it)
 # uv.lock
+
+# Additional scratch and dumb files
+agent_showcase.py
+make_*.py
+update_notebook*.py
+test_markdown.py
+*.pdf
+resume_text.txt
+.qwen/

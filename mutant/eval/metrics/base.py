@@ -124,13 +124,22 @@ class Metric(ABC):
         """
         # Check required fields
         for field in self.required_fields:
-            value = test_case
-            for part in field.split("."):
-                if value is None:
+            # Handle OR syntax (e.g., "context|retrieval_context")
+            options = field.split("|")
+            field_found = False
+            
+            for option in options:
+                value = test_case
+                for part in option.split("."):
+                    if value is None:
+                        break
+                    value = getattr(value, part, None)
+                    
+                if value is not None and not (isinstance(value, (str, list, dict)) and not value):
+                    field_found = True
                     break
-                value = getattr(value, part, None)
-                
-            if value is None or (isinstance(value, (str, list, dict)) and not value):
+                    
+            if not field_found:
                 return MetricResult(
                     metric_name=self.name,
                     score=0.0,
@@ -175,6 +184,25 @@ class Metric(ABC):
             passed=False,
             verdict=Verdict.ERROR,
             reason=f"Metric error: {error_msg}",
+        )
+
+    def _unknown_result(self, reason: str, metadata: dict[str, Any] | None = None) -> MetricResult:
+        """Build an UNKNOWN MetricResult — not enough evidence to verify.
+
+        Security metrics use this when observable data (tool calls, context) is
+        missing, or when an optional semantic judge failed. ``passed`` is True so
+        a single unknown metric does not fail the whole case, but the verdict is
+        UNKNOWN: ``EvalResult.status`` reports such a case as inconclusive and
+        reports exclude it from pass rates instead of counting it as a pass.
+        """
+        return MetricResult(
+            metric_name=self.name,
+            score=0.5,
+            threshold=self.threshold,
+            passed=True,  # does not fail the case; excluded from pass rate via Verdict.UNKNOWN
+            verdict=Verdict.UNKNOWN,
+            reason=reason,
+            metadata=metadata or {},
         )
 
     def __repr__(self) -> str:

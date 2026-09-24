@@ -208,14 +208,14 @@
                 {% endif %}
                 
                 <div class="bold text-blue">Original:</div>
-                <div class="message-block text-white">{{ case.original_description }}</div>
+                <div class="message-block text-white">{{ case.original }}</div>
                 
                 <div class="bold text-magenta">Mutated:</div>
-                <div class="message-block text-white" style="border-left-color: var(--magenta);">{{ case.mutated_description }}</div>
+                <div class="message-block text-white" style="border-left-color: var(--magenta);">{{ case.mutated }}</div>
                 
                 <div class="text-dim" style="font-size: 0.85em; margin-top: 12px;">
-                    Dimension: <span class="text-white">{{ case.dimension_id }}</span> · 
-                    Novelty: <span class="text-white">{{ "%.2f"|format(case.get('novelty_score', 1.0)) }}</span>
+                    Dimension: <span class="text-white">{{ case.dimension_id }}</span> ·
+                    Quality: <span class="text-white">{{ "approved" if case.get('quality_approved', True) else "flagged" }}</span>
                 </div>
             </div>
         </div>

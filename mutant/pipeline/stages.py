@@ -24,6 +24,7 @@ V0.5 Changes vs V0.4:
 from __future__ import annotations
 
 import hashlib
+import logging
 import time
 import uuid
 from typing import TYPE_CHECKING
@@ -309,12 +310,28 @@ async def _generate_dimension_batch(
     # Step B: Try batch generation (all in one call)
     cases = await _try_batch_generate(ctx, provider, dimension, plans, count)
 
-    # If batch succeeded, return immediately
-    if cases:
-        return cases
+    if len(cases) >= count:
+        return cases[:count]
 
-    # Step C: Fallback — concurrent per-mutation calls (V0.4 behaviour)
-    return await _generate_concurrent(ctx, provider, dimension, plans, count)
+    if not cases:
+        # Step C: Fallback — concurrent per-mutation calls (V0.4 behaviour)
+        return await _generate_concurrent(ctx, provider, dimension, plans, count)
+
+    # A batch call returns whatever the model produced, and a small model asked for eight
+    # probes routinely returns one or two. Shipping that shortfall silently is what makes
+    # a suite under-test while looking green, so generate the remainder individually and
+    # say so. MutationResult.requested_count/shortfall expose it to the caller.
+    remaining = count - len(cases)
+    logging.getLogger("mutant").warning(
+        "Batch generation for %s returned %d of %d requested probes; generating %d more.",
+        dimension.id,
+        len(cases),
+        count,
+        remaining,
+    )
+    top_up_plans = (list(plans[len(cases):]) + [None] * remaining)[:remaining]
+    top_up = await _generate_concurrent(ctx, provider, dimension, top_up_plans, remaining)
+    return (cases + top_up)[:count]
 
 
 async def _get_candidate_plans(

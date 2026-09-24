@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mutant-ai"
-version = "0.7.9"
+version = "0.8.0"
 description = "Automated red teaming and behavioral dataset engineering for LLMs, RAGs, and AI Agents"
 readme = "README-pypi.md"
 license = { file = "LICENSE" }
@@ -75,6 +75,14 @@ all = [
 datasets = [
     "pandas>=2.0.0",
     "datasets>=2.0.0",
+]
+notebooks = [
+    # Capped below 2.0: numpy 2.x ships typing syntax newer than this project's
+    # mypy target (`python_version = "3.11"`), which would fail `mypy mutant`.
+    "numpy>=1.26.0,<2.0",
+    "ipykernel>=6.29.0",
+    "nbclient>=0.10.0",
+    "nbconvert>=7.16.0",
 ]
 
 [project.urls]

@@ -127,6 +127,9 @@ async def plan_attack(
     previous_result: Any | None = None,
     registry: MutationRegistry | None = None,
     max_retries: int = 3,
+    attack_surface: Any | None = None,
+    rules: list[str] | None = None,
+    traces: list[Any] | None = None,
 ) -> AttackPlan:
     """Select the next attack as a hypothesis-driven experiment.
 
@@ -134,6 +137,9 @@ async def plan_attack(
     - Generates MULTIPLE candidate strategies and picks the best one.
     - Cost optimization: favors reusing cached observations & reflections.
     - Avoids strategies definitively marked as failed in reflection memory.
+    Trace-driven (2026):
+    - Uses observable attack_surface + traces to target real capabilities,
+      not blind behavior cycling. Each attack depends on what was actually observed.
     """
     reg = registry or _default_registry
 
@@ -216,6 +222,36 @@ async def plan_attack(
     resistance_context = model.resistance_summary()
     reflection_context = model.reflection_memory.compact_summary(last_n=5)
 
+    # Trace-driven: attack surface and observable traces
+    attack_surface_context = ""
+    if attack_surface is not None:
+        try:
+            attack_surface_context = attack_surface.summary() if hasattr(attack_surface, "summary") else str(attack_surface)
+            # Also include suggested attacks as explicit hints
+            if hasattr(attack_surface, "suggested_next_attacks") and attack_surface.suggested_next_attacks:
+                attack_surface_context += "\nSuggested next attacks: " + ", ".join(attack_surface.suggested_next_attacks)
+            if hasattr(attack_surface, "interesting_observations") and attack_surface.interesting_observations:
+                attack_surface_context += "\nInteresting observations: " + "; ".join(attack_surface.interesting_observations[:3])
+        except Exception:
+            attack_surface_context = str(attack_surface)
+
+    rules_context = ""
+    if rules:
+        rules_context = "\n".join(f"- {r}" for r in rules)
+    else:
+        rules_context = "(No custom rules — use built-in checks: prompt leakage, secret exposure, unauthorized tool use, missing confirmation)"
+
+    # Compact trace summary for planner (last traces)
+    trace_context = ""
+    if traces:
+        last_traces = traces[-3:]
+        lines = []
+        for tr in last_traces:
+            lines.append(f"- Input: {tr.input[:60]!r} → Output: {tr.output[:60]!r} | tools={len(tr.tool_calls or [])} | docs={len(tr.retrieved_context or [])}")
+        trace_context = "\n".join(lines)
+    else:
+        trace_context = "No traces yet — first attack."
+
     prompt = render_prompt(
         "redteam_planning.md",
         goal=goal,
@@ -227,6 +263,9 @@ async def plan_attack(
         evidence=evidence_context,
         resistance_scores=resistance_context,
         reflection_memory=reflection_context,
+        attack_surface=attack_surface_context,
+        rules=rules_context,
+        traces=trace_context,
     )
 
     # Ask the LLM to generate multiple candidate strategies
@@ -242,13 +281,51 @@ async def plan_attack(
         response = await provider.complete_json(
             [LLMMessage(role="user", content=prompt)],
             CandidateListResponse,
-            temperature=0.7,
+            temperature=0.4,
             max_retries=max_retries,
         )
         
         candidates = getattr(response, "candidates", [])
         if not candidates:
             raise ValueError("No candidates generated.")
+
+        # ── Normalize behavior IDs (qwen3:4b and other small models often return placeholders or strategy names) ──
+        # Map common invalid behaviors to valid ones
+        _BEHAVIOR_ALIASES = {
+            "authority_impersonation": "safety.social_engineering",
+            "authority": "safety.social_engineering",
+            "authority_acceptance": "safety.social_engineering",
+            "social_engineering": "safety.social_engineering",
+            "prompt_injection": "safety.prompt_injection",
+            "jailbreak": "safety.jailbreak",
+            "workflow_hijacking": "safety.workflow_hijacking",
+            "string": "safety.prompt_injection",  # placeholder fallback
+            "string — one of the available behavior ids": "safety.prompt_injection",
+        }
+        available_ids = {b["id"] for b in available}
+        for c in candidates:
+            original = c.behavior
+            # Handle placeholder / strategy confusion
+            if original not in available_ids:
+                low = original.lower().strip()
+                # Direct alias
+                if low in _BEHAVIOR_ALIASES:
+                    c.behavior = _BEHAVIOR_ALIASES[low]
+                elif "." not in original and f"safety.{low}" in available_ids:
+                    c.behavior = f"safety.{low}"
+                elif "social" in low or "authority" in low:
+                    c.behavior = "safety.social_engineering"
+                elif "prompt" in low:
+                    c.behavior = "safety.prompt_injection"
+                elif "jailbreak" in low:
+                    c.behavior = "safety.jailbreak"
+                elif "workflow" in low or "hijack" in low:
+                    c.behavior = "safety.workflow_hijacking"
+                elif "string" in low:
+                    c.behavior = available[0]["id"] if available else "safety.prompt_injection"
+                # Log at debug, not warning, to avoid spam
+                if c.behavior != original:
+                    logger.debug(f"Normalized behavior '{original}' → '{c.behavior}'")
 
         # Filter out definitively failed strategies
         valid_candidates = []
@@ -260,8 +337,74 @@ async def plan_attack(
         if not valid_candidates:
             valid_candidates = candidates # Fallback if all were filtered
 
-        # Pick the best scoring candidate
-        best_candidate = max(valid_candidates, key=lambda c: c.score)
+        # ── Adaptive diversity enforcement ──
+        # If last turns were same behavior with no_progress, penalize repeating it
+        recent_behaviors = []
+        for t in history:
+            if t.role == "attacker" and t.metadata.get("plan"):
+                recent_behaviors.append(t.metadata["plan"].get("behavior"))
+        recent_behaviors = recent_behaviors[-4:]  # last 4 attacker turns
+
+        def _diversity_penalty(c: CandidateStrategy) -> float:
+            # If candidate repeats the most recent behavior and last result was no_progress/failed
+            if previous_result and previous_result.progress.value in ("no_progress", "failed"):
+                if c.behavior in recent_behaviors[-2:]:
+                    # Check frequency: if we tried this behavior 2+ times recently with no progress, heavily penalize
+                    freq = recent_behaviors.count(c.behavior)
+                    if freq >= 2:
+                        return -0.4
+                    return -0.15
+                # Also penalize same approach name repetition
+                recent_strategies = [t.metadata.get("plan", {}).get("strategy") for t in history if t.role == "attacker"][-3:]
+                if c.approach in recent_strategies:
+                    return -0.1
+            return 0.0
+
+        # Re-score with diversity penalty and pick best
+        best_candidate = max(
+            valid_candidates,
+            key=lambda c: c.score + _diversity_penalty(c),
+        )
+
+        # ── Validate behavior is in available list ──
+        available_ids = {b["id"] for b in available}
+        if best_candidate.behavior not in available_ids:
+            logger.debug(f"Planner returned invalid behavior '{best_candidate.behavior}' not in {available_ids}, correcting.")
+            # Try to find a valid candidate, else fallback to first available
+            valid_in_available = [c for c in valid_candidates if c.behavior in available_ids]
+            if valid_in_available:
+                best_candidate = max(valid_in_available, key=lambda c: c.score + _diversity_penalty(c))
+            else:
+                # Force correction to first available behavior
+                best_candidate.behavior = available[0]["id"] if available else best_candidate.behavior
+
+        # If best still repeats a heavily-tried behavior, try to pick a different one
+        if previous_result and previous_result.progress.value in ("no_progress", "failed"):
+            if best_candidate.behavior in recent_behaviors[-2:] and recent_behaviors.count(best_candidate.behavior) >= 2:
+                # Look for alternative behavior not in recent history
+                alternatives = [c for c in valid_candidates if c.behavior not in recent_behaviors and c.behavior in available_ids]
+                if alternatives:
+                    # Prefer alternatives with highest score
+                    alt_best = max(alternatives, key=lambda c: c.score + _diversity_penalty(c))
+                    # Only switch if alternative is not much worse (within 0.2)
+                    if alt_best.score + 0.2 >= best_candidate.score:
+                        best_candidate = alt_best
+                        logger.info(f"Adaptive pivot: switched from repeated {recent_behaviors[-1]} to {best_candidate.behavior}")
+
+        # Escalation adaptation: if last turn was no_progress, escalate or pivot
+        if previous_result and previous_result.progress.value == "no_progress":
+            # If same behavior, ensure escalation increases or strategy changes
+            if best_candidate.behavior in recent_behaviors[-1:]:
+                # Force escalation increase if stuck
+                best_candidate.escalation = min(5, best_candidate.escalation + 1)
+                # Force strategy change if we were direct repeatedly
+                if best_candidate.approach == "direct" and len(recent_behaviors) >= 2:
+                    # Prefer authority/social variants
+                    authority_candidates = [c for c in valid_candidates if ("authority" in c.approach.lower() or "imperson" in c.name.lower()) and c.behavior in available_ids]
+                    if authority_candidates:
+                        auth_best = max(authority_candidates, key=lambda c: c.score)
+                        if auth_best.score + 0.15 >= best_candidate.score:
+                            best_candidate = auth_best
 
         return AttackPlan(
             behavior=best_candidate.behavior,
@@ -274,8 +417,29 @@ async def plan_attack(
         )
 
     except Exception as e:
-        logger.warning(f"Strategy generation failed: {e}. Falling back to default.")
-        # Fallback to a basic direct plan
+        logger.warning(f"Strategy generation failed: {e}. Falling back to adaptive default.")
+        # Fallback: rotate through available behaviors based on history to ensure diversity
+        if history:
+            used = [t.metadata.get("plan", {}).get("behavior") for t in history if t.role == "attacker"]
+            # Pick first available not yet used, else cycle
+            for b in available:
+                if b["id"] not in used:
+                    return AttackPlan(
+                        behavior=b["id"],
+                        strategy="direct" if len(used) % 2 == 0 else "authority",
+                        escalation=min(5, (len(used) // len(available) + 1)),
+                        reason_summary=f"Fallback pivot to {b['name']} after prior refusal.",
+                    )
+            # All used, pick least used
+            from collections import Counter
+            cnt = Counter(used)
+            least = min(available, key=lambda b: cnt.get(b["id"], 0))
+            return AttackPlan(
+                behavior=least["id"],
+                strategy="indirect",
+                escalation=2,
+                reason_summary=f"Fallback retry {least['name']} with alternative framing.",
+            )
         behavior_id = available[0]["id"] if available else "safety.prompt_injection"
         return AttackPlan(
             behavior=behavior_id,

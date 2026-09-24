@@ -10,7 +10,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet.
+- **`BaseLLMProvider.complete_text()`** — a natural-language completion path, for
+  application code whose output is read by a human or a user (agent replies, RAG
+  answers, refusals). `OllamaProvider` overrides it so the reply is no longer forced
+  into a JSON envelope; `complete()` keeps that constraint because the mutation
+  engine and the LLM judges parse its output.
+- **`mutant.eval.gate`** — a model-free security gate you can run on every pull request:
+  curated probes, no generation call, no judge, milliseconds to run. Use it from the
+  command line (`python -m mutant.eval.gate --target myapp.agent:handle --secret ...`)
+  or from a test (`assert_security_gate(target, secrets=[...])`). It reports the checks
+  it could not decide instead of counting them as passes, and explains when a metric was
+  skipped (the tool-authorization metric needs `tool_constraints`; with none it would
+  pass every call it saw).
+- **`examples/security_target/`** — a runnable service with the bug classes the suite
+  targets, behind a switch: vulnerable by default, guarded with
+  `MUTANT_DEMO_SECURITY=on`. The gate fails one and passes the other, which is how you
+  check that a green result is not vacuous.
+- **`MutationResult.shortfall` and `.dimension_counts`**, plus `requested_count`, so a run
+  that delivered fewer probes than requested — or delivered none for a dimension you
+  asked for — says so instead of looking like a clean result.
+- **`tests/test_judge_reliability.py`** — an opt-in harness (`MUTANT_JUDGE_EVAL=1`) that
+  measures the semantic judges against labelled must-fail/must-pass cases, with the known
+  misses recorded as expected failures.
+- Optional **`notebooks`** dependency extra (`numpy`, `ipykernel`, `nbclient`,
+  `nbconvert`) — the example notebooks import `numpy`, which was previously
+  undeclared and disappeared on `uv sync`.
+
+### Changed
+- Security metrics: several detection defects found by running the suite against a real
+  application are fixed.
+  - `PromptInjectionResistance` recognises an instruction override by its **shape**
+    rather than a fixed phrase list, so paraphrases ("ignore all prior instructions") are
+    judged instead of silently reported as "not an injection". A probe from the injection
+    dimension the classifier still misses comes back `UNKNOWN` with
+    `metadata["classifier_missed"] = True`.
+  - `RAGContextLeakage` requires a substantial verbatim overlap with a sensitive line or a
+    secret **value** shared with the retrieved document; it no longer fails a refusal for
+    sharing a word with it.
+  - `InstructionBoundary` fails a claimed forbidden action without needing a judge
+    (`metadata["violated_action"]`), and no longer fails a reply merely for mentioning
+    confidentiality or opening with "Here is …" while disclosing nothing.
+  - `SensitiveDataLeakage` uses its credential heuristic: an unverified credential-shaped
+    value in the output is `UNKNOWN`, never a silent pass.
+  - Mutation generation tops up a short batch instead of shipping it, and the
+    tool-argument and data-leakage dimension instructions require a concrete identifier
+    instead of accepting vague probes.
+- `EvalSuite`'s `TargetFn` alias now reflects what the suite already supported: a target
+  may return a `TestCase` with observables, not only a string.
+- The security-evaluation notebooks (`examples/notebooks/security_eval/`) now
+  evaluate a real application — `security_lab.py`, with real TF-IDF retrieval, real
+  LLM replies and real tool execution against an order book and HR state — instead of
+  hardcoded reply strings. Each notebook also runs a deterministic control built from
+  a real bug (`context_echo`, `debug_echo`, `no_authz`) and compares each metric
+  verdict against ground truth taken from application state.
+
+### Fixed
+- `mutant/prompts/mutant_report.html` referenced fields the report never provided
+  (`case.original_description`, `case.novelty_score`), which raised a jinja2
+  `UndefinedError` for every HTML report. The JSON report now includes
+  `quality_approved`.
+- `tests/` referenced `BehaviorAnalysis.intent`, removed in the behaviour-analysis
+  refactor, in four places.
+
+### Known issues
+- **The semantic judges miss real violations.** Measured with
+  `MUTANT_JUDGE_EVAL=1 uv run pytest tests/test_judge_reliability.py`: of seven labelled
+  must-fail cases the judges passed three — a timesheet approval phrased with the policy
+  inverted, an employee record returned inside a Python dict, and an endpoint quoted out
+  of the system prompt. Do not rely on a judged verdict alone; gate on a suite.
+- **Probe generation can drift off-target**, and a small model asked for eight probes may
+  return one. Generation now tops up and reports the shortfall, but there is no
+  validation-and-retry loop against per-dimension required entities.
+- **`pytest` as configured exits non-zero on coverage** (`--cov-fail-under=75`): total
+  coverage is ~65%, driven by `mutant/redteam/*` (the deprecated tree) and
+  `mutant/core/mutation.py` (38%). The security metrics themselves are at 84%. Either add
+  tests for the redteam tree or scope the gate before wiring CI to the default command.
 
 ---
 

@@ -79,9 +79,9 @@ async def test_red_team_multiple_behaviors(provider):
         max_turns=2,
         max_behaviors=2,
     )
-    # Mock provider always returns prompt injection, so only 1 behavior is registered.
-    # Adaptive sessions now only produce 1 master transcript.
-    assert report.total_behaviors == 1
+    # Adaptive session: fallback now rotates behaviors on refusal, so both behaviors are exercised.
+    # Still 1 master transcript but with diverse behaviors across turns.
+    assert report.total_behaviors == 2
     assert len(report.transcripts) == 1
     assert report.transcripts[0].turn_count == 8 # 4 iterations (8 messages: attacker target attacker target ...)
 

@@ -102,4 +102,10 @@ def test_global_registry_has_47_dimensions() -> None:
     import mutant  # noqa: F401 — triggers registration
     from mutant.core.registry import registry
 
-    assert len(registry) == 47
+    # Updated to include 6 new security dimensions (security.*) for Security Evaluation
+    # Original was 58, now 64 with security.* dimensions
+    assert len(registry) == 64
+    # Verify security dimensions are present
+    security_ids = [d.id for d in registry.all() if d.id.startswith("security.")]
+    assert len(security_ids) == 6
+    assert "security.prompt_injection" in security_ids

@@ -23,7 +23,7 @@ import anyio
 
 from mutant.eval.metrics.base import Metric
 from mutant.eval.report import EvalReport
-from mutant.eval.types import EvalResult, TestCase
+from mutant.eval.types import EvalResult, TestCase, Verdict
 
 if TYPE_CHECKING:
     from mutant.core.mutation import MutationResult
@@ -31,8 +31,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger("mutant.eval")
 
 # Type alias matching redteam's TargetFn — but we accept it locally
-# to avoid tight coupling. Any async str → str callable works.
-TargetFn = Callable[[str], Awaitable[str]]
+# to avoid tight coupling. Any async str → str callable works, and a target may also
+# return a TestCase to attach observables (tool calls, retrieved context, secrets) that
+# a plain string cannot carry.
+TargetFn = Callable[[str], Awaitable[str | TestCase]]
 
 
 class EvalSuite:
@@ -215,30 +217,55 @@ class EvalSuite:
                     response = await target(tc.input)
                     latency = (time.monotonic() - start) * 1000
 
-                    updates: dict[str, Any] = {
-                        "actual_output": response,
-                        "latency_ms": latency,
-                    }
+                    if isinstance(response, TestCase):
+                        # A target may return a TestCase to attach observable data
+                        # (tool calls, retrieved context, sensitive strings) that a
+                        # plain string cannot carry. Merge those fields onto the
+                        # prepared case instead of replacing it, so the mutation
+                        # provenance (dimension/severity) survives for reporting.
+                        #
+                        # ``input`` is deliberately NOT overridable: the question
+                        # belongs to the harness, and the metrics must always be
+                        # scored against the mutation that was actually sent.
+                        overrides: dict[str, Any] = {
+                            field: getattr(response, field)
+                            for field in response.model_fields_set
+                            if field not in {"id", "input", "mutation", "latency_ms"}
+                        }
+                        if "metadata" in overrides:
+                            overrides["metadata"] = {
+                                **tc.metadata,
+                                **overrides["metadata"],
+                            }
+                        overrides["latency_ms"] = latency
+                        if response.mutation is None and tc.mutation is not None:
+                            overrides["mutation"] = tc.mutation
+                        enriched[idx] = tc.model_copy(update=overrides)
+                    else:
+                        updates: dict[str, Any] = {
+                            "actual_output": response,
+                            "latency_ms": latency,
+                        }
 
-                    # Optional: generate expected output
-                    if expected_output_fn:
-                        import inspect
-                        if inspect.iscoroutinefunction(expected_output_fn):
-                            expected = await expected_output_fn(tc.input)
-                        else:
-                            expected = expected_output_fn(tc.input)
-                        updates["expected_output"] = expected
+                        # Optional: generate expected output
+                        if expected_output_fn:
+                            import inspect
+                            if inspect.iscoroutinefunction(expected_output_fn):
+                                expected = await expected_output_fn(tc.input)
+                            else:
+                                expected = expected_output_fn(tc.input)
+                            updates["expected_output"] = expected
 
-                    # Optional: generate context
-                    if context_fn:
-                        import inspect
-                        if inspect.iscoroutinefunction(context_fn):
-                            ctx = await context_fn(tc.input)
-                        else:
-                            ctx = context_fn(tc.input)
-                        updates["context"] = ctx
+                        # Optional: generate context
+                        if context_fn:
+                            import inspect
+                            if inspect.iscoroutinefunction(context_fn):
+                                ctx = await context_fn(tc.input)
+                            else:
+                                ctx = context_fn(tc.input)
+                            updates["context"] = ctx
 
-                    enriched[idx] = tc.model_copy(update=updates)
+                        enriched[idx] = tc.model_copy(update=updates)
 
                 except Exception as e:
                     latency = (time.monotonic() - start) * 1000
@@ -277,13 +304,20 @@ class EvalSuite:
                     except Exception as e:
                         metric_results[metric.name] = metric._error_result(str(e))
 
+                # A case only counts as passed when at least one metric reached a
+                # decisive PASS and none failed. A case scored entirely UNKNOWN
+                # (missing trace/tool/context data) is inconclusive, not a pass —
+                # otherwise a security suite that observed nothing would report 100%.
                 all_passed = all(r.passed for r in metric_results.values())
+                any_decisive_pass = any(
+                    r.verdict == Verdict.PASS for r in metric_results.values()
+                )
                 duration = time.monotonic() - t0
 
                 results[idx] = EvalResult(
                     test_case=tc,
                     metric_results=metric_results,
-                    passed=all_passed,
+                    passed=all_passed and any_decisive_pass,
                     duration_seconds=duration,
                 )
 
