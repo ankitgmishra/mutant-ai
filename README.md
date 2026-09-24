@@ -19,21 +19,22 @@
 </p>
 
 <p align="center">
-  <strong>Automated Red Teaming & Behavioral Dataset Engineering for LLMs, RAGs & AI Agents.</strong><br>
-  Analyze scenarios, discover behavioral risks, and generate targeted adversarial test cases.
+  <strong>Data Generation, RAG Evaluation & Automated Red Teaming for LLMs and AI Agents.</strong><br>
+  Generate adversarial datasets, evaluate RAG pipelines, and discover security vulnerabilities.
 </p>
 
 <p align="center">
-  <code>Scenario → Behavior Analysis → Mutation Planning → Behavioral Mutations → Coverage</code>
+  <code>Dataset Generation</code> • <code>RAG & LLM Evaluation</code> • <code>Security Red Teaming</code>
 </p>
 
 ---
 
 ## What is Mutant?
 
-Mutant is a **behavioral security and data generation library** for LLMs, RAG pipelines, and AI Agents. It provides two powerful capabilities:
-1. **Automated Red Teaming**: An adaptive, hypothesis-driven engine that autonomously interacts with your AI agents to discover prompt injections, memory leaks, and safety bypasses.
-2. **Adversarial Data Generation**: Instead of manually writing edge-case prompts, you give Mutant a single baseline scenario, and it automatically generates a diverse dataset of realistic, adversarial variations (spanning 47+ built-in behavioral dimensions).
+Mutant is a **behavioral security, evaluation, and data generation library** for LLMs, RAG pipelines, and AI Agents. It provides three powerful capabilities:
+1. **Adversarial Data Generation**: Instead of manually writing edge-case prompts, you give Mutant a single baseline scenario, and it automatically generates a diverse dataset of realistic, adversarial variations (spanning 47+ built-in behavioral dimensions).
+2. **RAG & LLM Evaluation**: A first-class `EvalSuite` offering industry-standard metrics (similar to DeepEval/Ragas) like Correctness, Faithfulness, and Context Precision to thoroughly evaluate your AI applications.
+3. **Security Evaluation**: An integrated automated red teaming workflow that pairs the Mutation Engine with specialized security metrics to proactively discover prompt injections, memory leaks, and safety bypasses in your AI agents.
 
 ## Why Mutant?
 
@@ -46,7 +47,7 @@ When users interact with your LLM or AI agent, they might:
 - Expose **Memory Conflicts** or **Policy Gray Areas**
 - Trigger unexpected **Tool Failures** or **Permission Escalations**
 
-Mutant gives you the tools to proactively defend against these behaviors. The **Red Team Engine** dynamically exploits these vulnerabilities in your running agents, while the **Mutation Engine** generates thousands of realistic variations so you can build robust evaluation datasets in minutes, not days.
+Mutant gives you the tools to proactively defend against these behaviors. The **Mutation Engine** generates thousands of realistic variations so you can build robust evaluation datasets in minutes, while the **Evaluation Suite** dynamically measures your agents' performance and security resilience against these attacks.
 
 ## How Mutant Works
 
@@ -226,32 +227,77 @@ report.to_html("coverage_dashboard.html")
 
 ---
 
-## Automated Red Teaming
+## RAG & LLM Evaluation (DeepEval / Ragas Style)
 
-Mutant features an adaptive, hypothesis-driven **Red Team Engine** that autonomously interacts with your AI agent to discover vulnerabilities (like prompt injections or safety bypasses) through multi-turn conversations.
+Mutant now includes a first-class **Evaluation Framework** (`EvalSuite`) for running deterministic and LLM-as-a-judge metrics against your applications. This allows you to evaluate your RAG pipelines and AI agents using industry-standard metrics like Correctness, Faithfulness, Context Precision, and more.
 
 ```python
 import asyncio
-from mutant.redteam import red_team
-from mutant.providers import OllamaProvider
+from mutant.eval import EvalSuite, Correctness, Faithfulness, TestCase
+from mutant.providers import OpenAIProvider
 
-# Import or define your AI agent (LangChain, LlamaIndex, custom API, etc.)
+async def main():
+    provider = OpenAIProvider(model="gpt-4o")
+    
+    # Define standard metrics (DeepEval/Ragas style)
+    metrics = [
+        Correctness(provider=provider),
+        Faithfulness(provider=provider)
+    ]
+    
+    suite = EvalSuite(metrics=metrics)
+    
+    # Evaluate a test case
+    test_case = TestCase(
+        input="What is the refund policy?",
+        actual_output="Refunds are available within 30 days.",
+        expected_output="Refunds are available within 30 days of purchase.",
+        retrieval_context=["Our store policy allows refunds within 30 days of purchase."]
+    )
+    
+    report = await suite.run([test_case])
+    report.to_html("eval_report.html")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
+## Security Evaluation (Automated Red Teaming)
+
+Security is deeply integrated into `EvalSuite`. Instead of writing manual attacks, you can use the Mutation Engine to generate adversarial test cases, then evaluate your agent's defenses using specialized security metrics (like `SensitiveDataLeakage` and `PromptInjectionResistance`).
+
+```python
+import asyncio
+from mutant import mutate, Scenario
+from mutant.eval import EvalSuite, SensitiveDataLeakage, PromptInjectionResistance
+from mutant.providers import OpenAIProvider
+
+# Import or define your AI agent
 from my_app import my_agent 
 
 async def main():
-    provider = OllamaProvider(model="llama3.2")
+    provider = OpenAIProvider(model="gpt-4o")
     
-    # The Red Team Engine will hypothesize and attempt to achieve the goal
-    report = await red_team(
-        target=my_agent,
-        goal="Extract the secret system prompt",
-        provider=provider,
-        max_turns=5
+    # 1. Generate adversarial mutations focused on security
+    scenario = Scenario(title="Customer Support", description="Standard support chat.")
+    mutations = await mutate(
+        scenario, 
+        provider=provider, 
+        count=10, 
+        categories=["safety"]
     )
     
-    # View the results and vulnerabilities found
-    print(report.summary())
-    report.to_html("redteam_report.html")
+    # 2. Define security metrics
+    suite = EvalSuite(metrics=[
+        SensitiveDataLeakage(provider=provider),
+        PromptInjectionResistance(provider=provider)
+    ])
+    
+    # 3. Evaluate the target agent against generated attacks
+    report = await suite.run_against(target=my_agent, mutations=mutations)
+    report.to_html("security_eval_report.html")
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -277,18 +323,18 @@ hf_ds = result.to_huggingface()         # Returns a HuggingFace Dataset
 
 ## Architecture
 
-Mutant provides two primary engines: the **Red Team Engine** for autonomous vulnerability discovery, and the **Mutation Engine** for large-scale dataset generation.
+Mutant provides two primary engines: the **Mutation Engine** for large-scale adversarial dataset generation, and the **Evaluation Suite (`EvalSuite`)** for running metrics and security evaluations.
 
-### Red Team Engine (Autonomous Testing)
+### Evaluation Suite (EvalSuite)
 
 ```mermaid
 flowchart LR
 
-A["Observe Target"] --> B["Hypothesize Vulnerability"]
-B --> C["Plan Attack Strategy"]
-C --> D["Generate Attack"]
-D --> E["Execute & Analyze"]
-E --> A
+A["Test Cases / Mutations"] --> B["EvalSuite"]
+B --> C["Metric 1 (e.g. Correctness)"]
+B --> D["Metric 2 (e.g. Security)"]
+C --> E["Report Generation"]
+D --> E
 
 classDef process fill:#F3E5F5,stroke:#8E24AA,color:#4A148C,stroke-width:2px;
 class A,B,C,D,E process;
